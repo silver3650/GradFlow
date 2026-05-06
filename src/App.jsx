@@ -36,6 +36,10 @@ export default function App() {
     return () => subscription.unsubscribe();
   }, []);
 
+  useEffect(() => {
+    if (mainContentRef.current) mainContentRef.current.scrollTop = 0;
+  }, [activeTab]);
+
   const fetchAllData = async () => {
     if (!session?.user) return;
     try {
@@ -65,15 +69,15 @@ export default function App() {
   if (!session) return <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4"><AuthScreen showAlert={showAlert} /></div>;
 
   return (
-    <div className="fixed inset-0 bg-slate-50 flex flex-col md:flex-row overflow-hidden font-sans">
+    <div className="fixed inset-0 bg-slate-50 flex flex-col md:flex-row overflow-hidden font-sans text-left">
       
-      {/* 💻 데스크톱 사이드바 */}
+      {/* 💻 데스크톱 사이드바: 로고 폰트 Non-Italic 수정[cite: 3] */}
       <aside className="hidden md:flex w-64 bg-[#1a1f2c] p-6 text-white flex-col z-20">
         <div className="flex items-center space-x-3 mb-12 px-2">
           <div className="bg-[#6366f1] p-2 rounded-xl shadow-lg shadow-indigo-500/20">
             <GraduationCap size={24} className="text-white" />
           </div>
-          <span className="text-xl font-black italic tracking-tighter">GradFlow</span>
+          <span className="text-xl font-black tracking-tighter">GradFlow</span>
         </div>
         <nav className="flex-1 space-y-2">
           {navItems.map((item) => (
@@ -84,13 +88,13 @@ export default function App() {
         </nav>
       </aside>
 
-      {/* 📱 모바일 고정 헤더: 로고 폰트 수정 */}
+      {/* 📱 모바일 헤더: 로고 폰트 Non-Italic 수정[cite: 3] */}
       <header className="md:hidden fixed top-0 left-0 right-0 bg-white border-b border-gray-100 h-[56px] flex items-center justify-between px-5 z-[50] shadow-sm">
         <div className="flex items-center gap-2.5">
           <div className="bg-[#6366f1] p-1.5 rounded-lg shadow-md">
             <GraduationCap size={18} className="text-white" />
           </div>
-          <span className="text-lg font-black italic tracking-tighter text-[#1a1f2c]">GradFlow</span>
+          <span className="text-lg font-black tracking-tighter text-[#1a1f2c]">GradFlow</span>
         </div>
         <button className="p-2 text-gray-400"><Bell size={20} /></button>
       </header>
