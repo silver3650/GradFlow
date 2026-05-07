@@ -35,7 +35,7 @@ export default function App() {
     return () => subscription.unsubscribe();
   }, []);
 
-  // 탭 전환 시 최상단 자동 스크롤
+  // 탭 전환 시 최상단 자동 스크롤[cite: 3]
   useEffect(() => {
     if (mainContentRef.current) {
       mainContentRef.current.scrollTo(0, 0);
@@ -72,56 +72,38 @@ export default function App() {
 
   return (
     <div className="fixed inset-0 bg-slate-50 flex flex-col md:flex-row overflow-hidden font-sans text-left">
-      {/* 데스크톱 사이드바 */}
       <aside className="hidden md:flex w-64 bg-[#1a1f2c] p-6 text-white flex-col z-20">
         <div className="flex items-center space-x-3 mb-12 px-2">
-          <div className="bg-[#6366f1] p-2 rounded-xl shadow-lg shadow-indigo-500/20">
-            <GraduationCap size={24} className="text-white" />
-          </div>
-          <div className="flex items-end gap-2">
-            <span className="text-xl font-black tracking-tighter">GradFlow</span>
-            <span className="text-[11px] font-bold text-[#6366f1] uppercase tracking-wider mb-0.5">BETA</span>
-          </div>
+          <div className="bg-[#6366f1] p-2 rounded-xl shadow-lg shadow-indigo-500/20"><GraduationCap size={24} className="text-white" /></div>
+          <span className="text-xl font-black tracking-tighter">GradFlow</span>
         </div>
         <nav className="flex-1 space-y-2">
           {navItems.map((item) => (
-            <button 
-              key={item.id} 
-              onClick={() => setActiveTab(item.id)} 
-              className={`w-full flex items-center space-x-4 px-5 py-4 rounded-2xl font-bold transition-all ${activeTab === item.id ? 'bg-[#5c56e0] text-white shadow-lg' : 'text-gray-400 hover:bg-white/5'}`}
-            >
+            <button key={item.id} onClick={() => setActiveTab(item.id)} className={`w-full flex items-center space-x-4 px-5 py-4 rounded-2xl font-bold transition-all ${activeTab === item.id ? 'bg-[#5c56e0] text-white shadow-lg' : 'text-gray-400 hover:bg-white/5'}`}>
               {item.icon} <span>{item.label}</span>
             </button>
           ))}
         </nav>
       </aside>
 
-      {/* 모바일 헤더 */}
       <header className="md:hidden fixed top-0 left-0 right-0 bg-white border-b border-gray-100 h-[56px] flex items-center justify-between px-5 z-[50] shadow-sm">
         <div className="flex items-center gap-2.5">
-          <div className="bg-[#6366f1] p-1.5 rounded-lg shadow-md">
-            <GraduationCap size={18} className="text-white" />
-          </div>
-          <div className="flex items-end gap-1.5">
-            <span className="text-lg font-black tracking-tighter text-[#1a1f2c]">GradFlow</span>
-            <span className="text-[10px] font-bold text-[#6366f1] uppercase tracking-wider mb-0.5">BETA</span>
-          </div>
+          <div className="bg-[#6366f1] p-1.5 rounded-lg shadow-md"><GraduationCap size={18} className="text-white" /></div>
+          <span className="text-lg font-black tracking-tighter text-[#1a1f2c]">GradFlow</span>
         </div>
         <button className="p-2 text-gray-400"><Bell size={20} /></button>
       </header>
 
-      {/* 메인 영역 */}
-      <main ref={mainContentRef} className="flex-1 overflow-y-auto p-4 md:p-12 pt-[72px] md:pt-12 pb-24 md:pb-12 scroll-smooth">
+      <main ref={mainContentRef} className="flex-1 overflow-y-auto p-4 md:p-12 pt-[72px] md:pt-12 pb-20 md:pb-12 scroll-smooth">
         <div className="max-w-5xl mx-auto">
           {activeTab === 'dashboard' && <Dashboard courses={courses} coursework={coursework} userProfile={userProfile} setActiveTab={setActiveTab} />}
           {activeTab === 'coursework' && <Coursework courses={courses} setCourses={setCourses} coursework={coursework} setCoursework={setCoursework} showAlert={showAlert} />}
-          {activeTab === 'calendar' && <CalendarView courses={courses} coursework={coursework} setCoursework={setCoursework} />}
+          {activeTab === 'calendar' && <CalendarView courses={courses} coursework={coursework} />}
           {activeTab === 'profile' && <Profile userProfile={userProfile} setUserProfile={setUserProfile} showAlert={showAlert} />}
         </div>
       </main>
 
-      {/* 하단 내비바 */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-50 flex justify-around items-center py-2 pb-6 px-2 z-[50] shadow-lg">
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-50 flex justify-around items-center py-1.5 px-2 z-[50] shadow-[0_-4px_20px_rgba(0,0,0,0.04)]">
         {navItems.map((item) => (
           <button key={item.id} onClick={() => setActiveTab(item.id)} className={`flex flex-col items-center justify-center min-w-[60px] py-1 transition-all ${activeTab === item.id ? 'text-[#6366f1]' : 'text-gray-300'}`}>
             <div className={`p-1 rounded-xl transition-colors ${activeTab === item.id ? 'bg-indigo-50' : ''}`}>{item.icon}</div>
