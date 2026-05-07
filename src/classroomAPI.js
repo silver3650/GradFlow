@@ -1,73 +1,59 @@
-// src/classroomAPI.js
-import { supabase } from './supabaseClient';
+/**
+ * Google Classroom API 연동 유틸리티
+ */
 
-export const fetchGoogleClassroomAssignments = async () => {
+export const fetchGoogleClassroomAssignments = async (accessToken) => {
+  if (!accessToken) {
+    console.error("Google Access Token이 없습니다. 로그인을 확인해주세요.");
+    return [];
+  }
+
   try {
-    // 1. 현재 로그인한 유저의 세션 정보 가져오기
-    const { data: { session }, error } = await supabase.auth.getSession();
-    
-    if (error || !session) throw new Error("로그인 세션이 없습니다.");
-    
-    // 🔥 Supabase가 구글 로그인 시 받아온 구글 전용 Access Token
-    const providerToken = session.provider_token; 
-    
-    if (!providerToken) {
-      throw new Error("구글 제공자 토큰(Provider Token)이 없습니다. 구글로 다시 로그인해주세요.");
-    }
-
-    // 2. 사용자가 속한 '활성화된(ACTIVE)' 수업(Course) 목록 가져오기
-    const coursesRes = await fetch('https://classroom.googleapis.com/v1/courses?courseStates=ACTIVE', {
-      headers: { Authorization: `Bearer ${providerToken}` }
+    // 1. 활성화된(ACTIVE) 코스(과목) 목록 가져오기
+    const coursesResponse = await fetch('https://classroom.googleapis.com/v1/courses?courseStates=ACTIVE', {
+      headers: { Authorization: `Bearer ${accessToken}` }
     });
-    const coursesData = await coursesRes.json();
-
-    if (!coursesData.courses) return []; // 수업이 없으면 빈 배열 반환
-
-    let allAssignments = [];
-
-    // 3. 각 수업을 순회하며 과제(CourseWork) 목록 가져오기
-    for (const course of coursesData.courses) {
-      const courseworkRes = await fetch(`https://classroom.googleapis.com/v1/courses/${course.id}/courseWork`, {
-        headers: { Authorization: `Bearer ${providerToken}` }
-      });
-      const courseworkData = await courseworkRes.json();
-
-      if (courseworkData.courseWork) {
-        // 우리가 쓰기 편한 형태로 데이터 가공
-        const formattedWork = courseworkData.courseWork.map(work => {
-          
-          // 구글 클래스룸은 마감일을 {year, month, day}, {hours, minutes} 객체로 분리해서 줍니다.
-          let dueDateStr = null;
-          if (work.dueDate) {
-            const year = work.dueDate.year;
-            const month = String(work.dueDate.month).padStart(2, '0');
-            const day = String(work.dueDate.day).padStart(2, '0');
-            const hours = work.dueTime?.hours ? String(work.dueTime.hours).padStart(2, '0') : '23';
-            const minutes = work.dueTime?.minutes ? String(work.dueTime.minutes).padStart(2, '0') : '59';
-            
-            // UTC 기준으로 ISO String 생성 (구글은 기본적으로 UTC 기준 시간을 줌)
-            dueDateStr = new Date(`${year}-${month}-${day}T${hours}:${minutes}:00Z`).toISOString();
-          }
-
-          return {
-            source: 'google_classroom',
-            classroomId: work.id,
-            courseName: course.name, // 구글 클래스룸의 수업명
-            title: work.title,       // 과제 제목
-            description: work.description || '상세 내용 없음', // 과제 내용
-            dueDate: dueDateStr,     // 가공된 마감일
-            link: work.alternateLink // 구글 클래스룸 바로가기 링크
-          };
-        });
-        
-        allAssignments = [...allAssignments, ...formattedWork];
-      }
+    
+    if (!coursesResponse.ok) {
+      throw new Error(`코스 목록 Fetch 실패: ${coursesResponse.status}`);
     }
 
-    return allAssignments;
+    const { courses } = await coursesResponse.json();
+
+    if (!courses || courses.length === 0) {
+      console.log("활성화된 클래스룸 과목이 없습니다.");
+      return [];
+    }
+
+    // 2. 각 코스별 최신 과제(courseWork) 수집하기 (Promise.all로 병렬 처리)
+    const allWorkPromises = courses.map(async (course) => {
+      try {
+        // 각 과목당 최근 업데이트된 과제 5개씩 호출
+        const workResponse = await fetch(`https://classroom.googleapis.com/v1/courses/${course.id}/courseWork?orderBy=updateTime desc&pageSize=5`, {
+          headers: { Authorization: `Bearer ${accessToken}` }
+        });
+        const data = await workResponse.json();
+        
+        // 과목명(courseName)을 과제 데이터에 병합
+        return (data.courseWork || []).map(work => ({
+          ...work,
+          courseId: course.id,
+          courseName: course.name
+        }));
+      } catch (err) {
+        console.error(`과제 Fetch 에러 (과목: ${course.name}):`, err);
+        return [];
+      }
+    });
+
+    const allWorkArrays = await Promise.all(allWorkPromises);
+    const allWork = allWorkArrays.flat();
+
+    // 3. 모든 과제를 최신 업데이트 시간(updateTime) 기준으로 내림차순 정렬
+    return allWork.sort((a, b) => new Date(b.updateTime) - new Date(a.updateTime));
 
   } catch (error) {
-    console.error("클래스룸 데이터 연동 실패:", error);
-    return { error: error.message };
+    console.error("Google Classroom 연동 중 에러 발생:", error);
+    return [];
   }
 };
