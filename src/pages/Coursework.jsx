@@ -100,12 +100,12 @@ export default function Coursework({ courses = [], setCourses, coursework = [], 
   return (
     <div className="space-y-6 md:space-y-10 text-left pb-10">
       <div className="flex flex-col gap-6 md:flex-row md:justify-between md:items-center px-1">
-        <h2 className="text-2xl font-black text-gray-900 tracking-tighter">학업 대시보드</h2>
+        <h2 className="text-2xl font-black text-gray-900 tracking-tighter">과목 & 과제 현황</h2>
         <div className="flex justify-between items-center gap-4">
           <div className="flex bg-indigo-50/50 p-1 rounded-xl border border-indigo-100 w-fit">
             {['in_progress', 'completed', 'incomplete'].map(s => (
               <button key={s} onClick={() => setCourseStatusFilter(s)} className={`px-5 py-2 rounded-lg text-xs font-black transition-all ${courseStatusFilter === s ? 'bg-[#6366f1] text-white shadow-md' : 'text-indigo-400'}`}>
-                {s === 'in_progress' ? '수업중' : s === 'completed' ? '완료' : '미이수'}
+                {s === 'in_progress' ? '수강중' : s === 'completed' ? '이수' : '미이수'}
               </button>
             ))}
           </div>
