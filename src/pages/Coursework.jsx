@@ -1,8 +1,8 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
 import { 
   Plus, BookOpen, CalendarDays, 
-  X, Edit3, Clock, Hash, Trash2, Sparkles, RefreshCw, CheckCircle2, Calendar as CalendarIcon, Ban
+  X, Edit3, Clock, Hash, Trash2, Sparkles, RefreshCw, CheckCircle2, Calendar as CalendarIcon, Ban, ChevronUp
 } from 'lucide-react';
 
 export default function Coursework({ courses = [], setCourses, coursework = [], setCoursework, showAlert }) {
@@ -30,7 +30,28 @@ export default function Coursework({ courses = [], setCourses, coursework = [], 
   
   const [courseForm, setCourseForm] = useState(initialCourseForm);
   const [assignForm, setAssignForm] = useState(initialAssignForm);
+  const [showScrollTop, setShowScrollTop] = useState(false);
+  useEffect(() => {
+  const handleScroll = () => {
+    if (window.scrollY > 300) {
+      setShowScrollTop(true);
+    } else {
+      setShowScrollTop(false);
+    }
+  };
 
+  window.addEventListener('scroll', handleScroll);
+
+  return () => {
+    window.removeEventListener('scroll', handleScroll);
+  };
+}, []);
+    const scrollToTop = () => {
+  window.scrollTo({
+    top: 0,
+    behavior: 'smooth',
+  });
+};
   // 마감 임박순 계산 (날짜가 빠를수록 작은 값)[cite: 4]
   const getDDayValue = (date) => {
     if (!date) return 9999999999999;
@@ -248,6 +269,26 @@ export default function Coursework({ courses = [], setCourses, coursework = [], 
           </form>
         </div>
       )}
+      {/* 상단 이동 플로팅 버튼 */}
+{showScrollTop && (
+  <button
+    onClick={scrollToTop}
+    className="
+      fixed bottom-6 right-6 z-[9999]
+      w-14 h-14
+      rounded-full
+      bg-[#6366f1]
+      text-white
+      shadow-2xl
+      flex items-center justify-center
+      hover:scale-110
+      active:scale-95
+      transition-all duration-300
+    "
+  >
+    <ChevronUp size={26} />
+  </button>
+)}
     </div>
   );
 }
