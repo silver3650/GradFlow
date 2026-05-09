@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
 import { 
   Bell, ShieldCheck, ChevronRight, FileText, 
-  Calendar as CalIcon, Zap, Settings, Clock, Loader2, Sparkles, X
+  Calendar as CalIcon, Settings, Clock, Loader2, Sparkles, X,
+  GraduationCap // 🚀 구글 클래스룸 느낌을 위한 학사모 아이콘 추가
 } from 'lucide-react';
 import { fetchGoogleClassroomAssignments } from '../utils/classroomAPI';
 import { analyzeAssignmentWithAI } from '../utils/geminiAPI';
@@ -12,35 +13,55 @@ export default function Dashboard({ courses = [], coursework = [], setCoursework
   const [classroomTasks, setClassroomTasks] = useState([]);
   const [isSyncing, setIsSyncing] = useState(false);
   
-  // AI 연동 상태 관리
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [aiResultModal, setAiResultModal] = useState(false);
   const [analyzedData, setAnalyzedData] = useState(null);
 
-  useEffect(() => {
-    const getGoogleTasks = async () => {
-      if (!providerToken) return;
-      setIsSyncing(true);
+  // 🚀 동기화 및 페이지 이동 함수
+  const handleClassroomSync = async () => {
+    if (!providerToken) {
+      alert("구글 연동이 필요합니다. 설정 메뉴에서 구글 계정으로 다시 로그인해 주세요.");
+      setActiveTab('profile'); // 연동 안 되어 있으면 프로필(설정) 탭으로 이동
+      return;
+    }
+
+    setIsSyncing(true);
+    try {
       const tasks = await fetchGoogleClassroomAssignments(providerToken);
       setClassroomTasks(tasks);
+      
+      // 동기화 후 사용자가 결과를 바로 볼 수 있도록 '과제 확인' 탭으로 이동
+      setTimeout(() => {
+        setActiveTab('coursework');
+      }, 500); 
+      
+    } catch (error) {
+      console.error("Sync Error:", error);
+      alert("동기화 중 오류가 발생했습니다. 권한 설정을 확인해 주세요.");
+    } finally {
       setIsSyncing(false);
-    };
-    getGoogleTasks();
+    }
+  };
+
+  useEffect(() => {
+    if (providerToken) {
+      const getGoogleTasks = async () => {
+        setIsSyncing(true);
+        const tasks = await fetchGoogleClassroomAssignments(providerToken);
+        setClassroomTasks(tasks);
+        setIsSyncing(false);
+      };
+      getGoogleTasks();
+    }
   }, [providerToken]);
 
   const latestGoogleTask = classroomTasks.length > 0 ? classroomTasks[0] : null;
   const hasNewClassroomTask = !!latestGoogleTask;
 
-  // 🚀 1. 마감 임박 과제 추출 로직 수정 (개인 일정 제외, 과제만 추출)
   const imminentTask = [...coursework]
-    .filter(a => 
-      !a.is_completed && 
-      a.course_id && // 과목이 연결된 것만
-      (a.category === 'assignment' || !a.category) // 과제 카테고리만
-    )
+    .filter(a => !a.is_completed && a.course_id && (a.category === 'assignment' || !a.category))
     .sort((a, b) => new Date(a.due_date) - new Date(b.due_date))[0];
 
-  // 과목명 찾기 헬퍼
   const getCourseName = (courseId) => {
     const course = courses.find(c => c.id === courseId);
     return course ? course.name : '연결된 과목 없음';
@@ -52,24 +73,24 @@ export default function Dashboard({ courses = [], coursework = [], setCoursework
     return diff > 0 ? `D-${diff}` : diff === 0 ? 'D-Day' : `D+${Math.abs(diff)}`;
   };
 
-  // 🚀 2. 날짜 형식 변환 (mm/dd(요일) hh:mm)
   const formatImminentDate = (dateString) => {
     if (!dateString) return '';
     const d = new Date(dateString);
     const week = ['일', '월', '화', '수', '목', '금', '토'];
-    const mm = String(d.getMonth() + 1).padStart(2, '0');
-    const dd = String(d.getDate()).padStart(2, '0');
-    const day = week[d.getDay()];
-    const hh = String(d.getHours()).padStart(2, '0');
-    const min = String(d.getMinutes()).padStart(2, '0');
-    return `${mm}/${dd}(${day}) ${hh}:${min}`;
+    return `${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')}(${week[d.getDay()]}) ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
   };
 
+  // 🚀 퀵 액션 설정 (아이콘 및 핸들러 수정)
   const quickActions = [
-    { label: '과제 확인', id: 'coursework', icon: <FileText className="text-blue-500" /> },
-    { label: '일정 확인', id: 'calendar', icon: <CalIcon className="text-indigo-500" /> },
-    { label: 'LMS 동기화', id: 'coursework', icon: <Zap className="text-emerald-500" /> },
-    { label: '설정 관리', id: 'profile', icon: <Settings className="text-orange-400" /> }
+    { label: '과제 확인', onClick: () => setActiveTab('coursework'), icon: <FileText className="text-blue-500" /> },
+    { label: '일정 확인', onClick: () => setActiveTab('calendar'), icon: <CalIcon className="text-indigo-500" /> },
+    { 
+      label: '구글 클래스룸 연동', 
+      onClick: handleClassroomSync, 
+      // 구글 클래스룸 고유의 초록색 테마 적용
+      icon: <GraduationCap className={isSyncing ? "text-emerald-500 animate-bounce" : "text-emerald-600"} /> 
+    },
+    { label: '설정 관리', onClick: () => setActiveTab('profile'), icon: <Settings className="text-orange-400" /> }
   ];
 
   const handleAiSplit = async () => {
@@ -80,8 +101,6 @@ export default function Dashboard({ courses = [], coursework = [], setCoursework
     if (result) {
       setAnalyzedData(result);
       setAiResultModal(true);
-    } else {
-      alert("AI 분석 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.");
     }
   };
 
@@ -133,7 +152,7 @@ export default function Dashboard({ courses = [], coursework = [], setCoursework
             {isSyncing ? (
               <Loader2 size={20} className="animate-spin" />
             ) : (
-              <Bell size={20} className={hasNewClassroomTask ? "animate-pulse" : ""} />
+              <GraduationCap size={20} className={hasNewClassroomTask ? "animate-pulse" : ""} />
             )}
             {hasNewClassroomTask && !isSyncing && (
               <span className="absolute -top-1 -right-1 flex h-3 w-3">
@@ -144,7 +163,7 @@ export default function Dashboard({ courses = [], coursework = [], setCoursework
           </div>
           <div className="min-w-0 flex-1">
             <p className="text-blue-600 text-[9px] md:text-[10px] font-black uppercase tracking-widest mb-0.5 flex items-center gap-1">
-              Google Classroom {isAnalyzing && <Loader2 size={10} className="animate-spin inline"/>}
+              Google Classroom {isSyncing && <Loader2 size={10} className="animate-spin inline"/>}
             </p>
             {isAnalyzing ? (
               <p className="font-bold text-gray-800 text-xs md:text-sm truncate animate-pulse">Gemini AI가 과제를 분석하고 있습니다...</p>
@@ -174,7 +193,7 @@ export default function Dashboard({ courses = [], coursework = [], setCoursework
         </button>
       </div>
 
-      {/* 🚀 3. 마감 임박 과제 메인 카드 (수정됨) */}
+      {/* 마감 임박 과제 메인 카드 */}
       <div className="bg-[#111827] rounded-[24px] md:rounded-[32px] p-6 md:p-8 shadow-xl relative overflow-hidden text-white group">
         <div className="flex justify-between items-center mb-6 md:mb-8">
           <h3 className="text-base md:text-lg font-bold flex items-center italic">
@@ -198,13 +217,9 @@ export default function Dashboard({ courses = [], coursework = [], setCoursework
                 </span>
               </div>
             </div>
-            
-            {/* 🚀 과목명 표시 (크게 강조) */}
             <h4 className="text-xl md:text-2xl font-black text-indigo-300 mb-2 leading-tight">
               {getCourseName(imminentTask.course_id)}
             </h4>
-            
-            {/* 과제 제목 */}
             <p className="text-sm md:text-base font-bold text-white/80 truncate">
               {imminentTask.title}
             </p>
@@ -217,19 +232,19 @@ export default function Dashboard({ courses = [], coursework = [], setCoursework
         <div className="absolute -bottom-10 -right-10 w-32 h-32 md:w-48 md:h-48 bg-indigo-500/10 rounded-full blur-2xl md:blur-3xl group-hover:bg-indigo-500/20 transition-all"></div>
       </div>
 
-      {/* 4. 퀵 액션 그리드 */}
+      {/* 퀵 액션 그리드 */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-5">
         {quickActions.map((action, i) => (
-          <div key={i} onClick={() => setActiveTab(action.id)} className="bg-white border border-gray-100 rounded-[20px] md:rounded-[24px] p-5 md:p-6 flex flex-col items-center justify-center cursor-pointer hover:shadow-md hover:-translate-y-1 transition-all group">
+          <div key={i} onClick={action.onClick} className="bg-white border border-gray-100 rounded-[20px] md:rounded-[24px] p-5 md:p-6 flex flex-col items-center justify-center cursor-pointer hover:shadow-md hover:-translate-y-1 transition-all group">
             <div className="bg-gray-50 p-3 md:p-4 rounded-[18px] mb-3 group-hover:scale-110 transition-transform duration-300">
               {React.cloneElement(action.icon, { size: 24 })}
             </div>
-            <span className="text-xs md:text-sm font-black text-gray-700">{action.label}</span>
+            <span className="text-xs md:text-sm font-black text-gray-700 text-center leading-tight">{action.label}</span>
           </div>
         ))}
       </div>
 
-      {/* AI 분석 결과 확인 및 저장 모달 */}
+      {/* AI 분석 결과 모달 */}
       {aiResultModal && analyzedData && (
         <div className="fixed inset-0 bg-black/50 z-[200] flex items-center justify-center p-4 backdrop-blur-sm animate-in fade-in">
           <div className="bg-white rounded-3xl w-full max-w-md shadow-2xl overflow-hidden animate-in zoom-in-95 flex flex-col max-h-[85vh]">
@@ -241,12 +256,11 @@ export default function Dashboard({ courses = [], coursework = [], setCoursework
               <button onClick={() => setAiResultModal(false)} className="text-gray-400 hover:text-gray-800 bg-white p-1 rounded-full shadow-sm"><X size={18} /></button>
             </div>
             
-            <div className="p-6 overflow-y-auto space-y-5">
+            <div className="p-6 overflow-y-auto space-y-5 text-left">
               <div className="bg-gray-50 p-4 rounded-2xl border border-gray-100">
                 <span className="text-[10px] font-black text-gray-400 block mb-1">AI 요약 설명</span>
                 <p className="text-sm font-bold text-gray-700 leading-relaxed">{analyzedData.description}</p>
               </div>
-              
               <div>
                 <span className="text-[11px] font-black text-gray-500 block mb-3 flex items-center gap-1"><Clock size={12}/> 자동 생성된 세부 일정</span>
                 <div className="space-y-2">
@@ -263,7 +277,7 @@ export default function Dashboard({ courses = [], coursework = [], setCoursework
             <div className="p-5 border-t border-gray-100 bg-white shrink-0">
               <button 
                 onClick={handleSaveAiTask}
-                className="w-full bg-[#4b44e6] text-white py-4 rounded-2xl font-black text-sm shadow-lg shadow-indigo-200 hover:bg-indigo-700 transition-all flex justify-center items-center gap-2"
+                className="w-full bg-[#4b44e6] text-white py-4 rounded-2xl font-black text-sm shadow-lg hover:bg-indigo-700 transition-all flex justify-center items-center gap-2"
               >
                 <FileText size={18} /> 이 일정으로 내 과제함에 등록하기
               </button>

@@ -108,8 +108,11 @@ export default function Coursework({ courses = [], setCourses, coursework = [], 
 
   return (
     <div className="space-y-4 md:space-y-6 text-left pb-10 relative">
-      <div className="flex flex-col gap-4 md:flex-row md:justify-between md:items-center px-1">
-        <h2 className="text-2xl font-black text-gray-900 tracking-tighter">과목 & 과제 현황</h2>
+      <div className="flex flex-col gap-4 md:flex-row md:justify-between md:items-start px-1">
+        <div>
+          <h2 className="text-2xl md:text-3xl font-black text-gray-900 tracking-tighter">과목 & 과제 현황</h2>
+          <p className="text-gray-500 font-medium text-xs md:text-sm mt-1">학기 중 진행되는 과목별 과제와 연구 일정을 한눈에 관리합니다.</p>
+        </div>
         <div className="flex justify-between items-center gap-4">
           <div className="flex bg-indigo-50/50 p-1 rounded-xl border border-indigo-100 w-fit">
             {['in_progress', 'completed', 'incomplete'].map(s => (
@@ -124,34 +127,34 @@ export default function Coursework({ courses = [], setCourses, coursework = [], 
         </div>
       </div>
 
-      {/* 🚀 높이가 최적화된 진행중인 과제 현황 섹션 */}
-      <div className="bg-white border border-gray-100 rounded-[20px] p-3 md:p-4 shadow-sm">
-        <h3 className="text-sm md:text-base font-black text-gray-800 mb-3 flex items-center gap-2">
-          <CalendarDays size={16} className="text-[#6366f1]" /> 
+      <div className="bg-white border border-gray-100 rounded-[20px] p-3 md:p-5 shadow-sm">
+        <h3 className="text-sm md:text-base font-black text-gray-800 mb-4 flex items-center gap-2">
+          <CalendarDays size={18} className="text-[#6366f1]" /> 
           진행중인 과제 현황 <span className="text-[#6b62ff]">({totalActiveAssignments})</span>
         </h3>
-        <div className="grid grid-cols-3 gap-2 md:gap-3">
+        <div className="grid grid-cols-3 gap-2.5 md:gap-4">
           {sortedCoursesForSummary.map(c => {
             const tasks = safeCoursework
               .filter(a => a.course_id === c.id && !a.is_completed && a.category !== 'cancellation' && a.category !== 'schedule')
               .sort((a,b) => getDDayValue(a.due_date) - getDDayValue(b.due_date));
             return (
-              <div key={c.id} onClick={() => document.getElementById(`course-${c.id}`)?.scrollIntoView({behavior:'smooth'})} className="bg-indigo-50/40 p-2 md:p-3 rounded-[12px] border border-indigo-100/50 cursor-pointer min-w-0 shadow-sm hover:border-[#6b62ff] transition-all">
-                <span className="font-black text-gray-900 text-[10px] md:text-xs block truncate mb-1.5">
-                  {c.name} <span className="text-[#6b62ff]">({tasks.length})</span>
+              <div key={c.id} onClick={() => document.getElementById(`course-${c.id}`)?.scrollIntoView({behavior:'smooth'})} className="bg-indigo-50/40 p-2.5 md:p-4 rounded-[16px] border border-indigo-100/50 cursor-pointer min-w-0 shadow-sm hover:border-[#6b62ff] transition-all">
+                {/* 🚀 과목명 폰트 크기 대폭 확대 */}
+                <span className="font-black text-gray-900 text-sm md:text-xl block truncate mb-2 leading-tight">
+                  {c.name} <span className="text-[#6b62ff] text-xs md:text-base">({tasks.length})</span>
                 </span>
-                <div className="space-y-1">
+                <div className="space-y-1.5">
                   {tasks.slice(0, 1).map(task => (
-                    <div key={task.id} className="bg-white border border-indigo-50 p-1.5 rounded-lg shadow-sm text-center">
-                      <p className="text-[9px] md:text-[10px] font-bold text-gray-700 truncate leading-tight">{task.title}</p>
-                      <p className="text-[8px] md:text-[10px] font-black text-red-500 mt-0.5">{getDDayLabel(task.due_date)}</p>
+                    <div key={task.id} className="bg-white border border-indigo-50 p-1.5 md:p-2 rounded-xl shadow-sm text-center">
+                      <p className="text-[10px] md:text-xs font-bold text-gray-700 truncate leading-tight">{task.title}</p>
+                      <p className="text-[9px] md:text-[11px] font-black text-red-500 mt-1">{getDDayLabel(task.due_date)}</p>
                     </div>
                   ))}
                   {tasks.length > 1 && (
-                    <p className="text-[8px] md:text-[9px] text-indigo-400 font-bold text-center">외 {tasks.length - 1}건 더보기</p>
+                    <p className="text-[9px] md:text-[11px] text-indigo-400 font-bold text-center">외 {tasks.length - 1}건 더보기</p>
                   )}
                   {tasks.length === 0 && (
-                    <p className="text-[8px] md:text-[9px] text-gray-300 font-bold text-center py-1">남은 과제 없음</p>
+                    <p className="text-[9px] md:text-[11px] text-gray-300 font-bold text-center py-1">남은 과제 없음</p>
                   )}
                 </div>
               </div>
@@ -168,7 +171,6 @@ export default function Coursework({ courses = [], setCourses, coursework = [], 
         ))}
       </div>
 
-      {/* 하단 리스트 섹션 */}
       <div className="space-y-8">
         {sortedCoursesForSummary.map(course => {
           const tasks = safeCoursework
@@ -178,20 +180,20 @@ export default function Coursework({ courses = [], setCourses, coursework = [], 
             <div key={course.id} id={`course-${course.id}`} className="scroll-mt-24">
               <div className="bg-[#1e253c] text-white px-5 py-4 rounded-t-[24px] flex justify-between items-center shadow-md">
                 <div className="min-w-0 pr-4 flex items-start gap-3">
-                  <BookOpen size={16} className="text-indigo-300 mt-1 shrink-0" />
+                  <BookOpen size={18} className="text-indigo-300 mt-1 shrink-0" />
                   <div className="flex flex-col">
-                    <h3 className="text-base font-black truncate leading-tight">{course.name}</h3>
-                    <p className="text-[10px] text-indigo-200/80 font-bold mt-0.5 tracking-wide">
+                    <h3 className="text-base md:text-lg font-black truncate leading-tight">{course.name}</h3>
+                    <p className="text-[10px] md:text-xs text-indigo-200/80 font-bold mt-0.5 tracking-wide">
                       {course.professor ? `${course.professor} 교수` : '교수 미지정'} ㅣ {course.day_of_week ? course.day_of_week.replace('요일', '') : ''} {course.start_time ? course.start_time.slice(0, 5) : ''}
                     </p>
                   </div>
                 </div>
                 <div className="flex gap-2 shrink-0">
-                  <button onClick={() => { setEditingCourseId(course.id); setCourseForm(course); setShowCourseModal(true); }} className="p-2 bg-white/10 rounded-lg hover:bg-white/20 transition-colors"><Edit3 size={16} /></button>
+                  <button onClick={() => { setEditingCourseId(course.id); setCourseForm(course); setShowCourseModal(true); }} className="p-2 bg-white/10 rounded-lg hover:bg-white/20 transition-colors"><Edit3 size={18} /></button>
                   <button onClick={() => { setEditingAssignId(null); setAssignForm({...initialAssignForm, course_id: course.id}); setShowAssignModal(true); }} className="bg-white text-[#1e253c] px-3 py-1.5 rounded-lg text-[10px] font-black shadow-sm hover:bg-gray-50 transition-colors">+ 추가</button>
                 </div>
               </div>
-              <div className="bg-white border-x border-b border-gray-100 p-4 rounded-b-[24px] grid grid-cols-1 md:grid-cols-2 gap-3 text-left shadow-sm">
+              <div className="bg-white border-x border-b border-gray-100 p-4 rounded-b-[24px] grid grid-cols-1 md:grid-cols-2 gap-4 text-left shadow-sm">
                 {tasks.map(a => {
                   const cardStyle = a.category === 'cancellation' 
                     ? 'border-red-100 bg-red-50/40 hover:border-red-200'
@@ -208,35 +210,37 @@ export default function Coursework({ courses = [], setCourses, coursework = [], 
                         setAssignForm({...a, due_date: localDue}); 
                         setShowAssignModal(true); 
                       }} 
-                      className={`p-4 rounded-[16px] border-2 cursor-pointer transition-all ${cardStyle}`}
+                      className={`p-5 rounded-[20px] border-2 cursor-pointer transition-all shadow-sm ${cardStyle}`}
                     >
-                      <div className="flex justify-between items-center mb-2">
+                      <div className="flex justify-between items-center mb-2.5">
                         <div className="flex items-center gap-2">
                           {a.category === 'cancellation' ? (
-                            <span className="flex items-center gap-1 text-[9px] font-black text-red-500 uppercase"><Ban size={10}/> 휴강</span>
+                            <span className="flex items-center gap-1 text-[10px] font-black text-red-500 uppercase"><Ban size={12}/> 휴강</span>
                           ) : a.category === 'schedule' ? (
-                            <span className="text-[9px] font-black text-emerald-500 uppercase">일정</span>
+                            <span className="text-[10px] font-black text-emerald-500 uppercase">일정</span>
                           ) : a.category === 'exam' ? (
-                            <span className="text-[9px] font-black text-orange-500 uppercase">EXAM</span>
+                            <span className="text-[10px] font-black text-orange-500 uppercase">EXAM</span>
                           ) : (
-                            <span className="text-[9px] font-black text-[#6b62ff] uppercase">TASK</span>
+                            <span className="text-[10px] font-black text-[#6b62ff] uppercase">TASK</span>
                           )}
                         </div>
                         {!a.is_completed && a.category !== 'cancellation' && a.category !== 'schedule' && (
-                          <span className="text-red-500 text-[10px] font-black bg-white shadow-sm border border-red-50 px-2.5 py-0.5 rounded-full">{getDDayLabel(a.due_date)}</span>
+                          <span className="text-red-500 text-[11px] font-black bg-white shadow-sm border border-red-50 px-3 py-1 rounded-full">{getDDayLabel(a.due_date)}</span>
                         )}
                       </div>
-                      <h4 className={`font-bold text-sm mb-2 leading-tight truncate ${a.category === 'cancellation' ? 'text-red-900' : 'text-gray-900'}`}>{a.title}</h4>
-                      <div className="flex justify-between items-center border-t border-black/5 pt-3">
-                        <span className="text-[10px] text-gray-500 font-bold flex items-center gap-1"><Clock size={12}/> {formatDisplayDate(a.due_date)}</span>
-                        <div className="flex items-center gap-2">
-                          <button onClick={async (e) => { e.stopPropagation(); const { data } = await supabase.from('assignments').update({ is_completed: !a.is_completed }).eq('id', a.id).select(); setCoursework(safeCoursework.map(item => item.id === a.id ? data[0] : item)); }} className={`w-8 h-4.5 rounded-full p-0.5 transition-all ${a.is_completed ? 'bg-[#6b62ff]' : 'bg-gray-300'}`}><div className={`bg-white w-3.5 h-3.5 rounded-full shadow-sm transform transition-all ${a.is_completed ? 'translate-x-3.5' : ''}`} /></button>
+                      <h4 className={`font-bold text-base mb-3 leading-tight truncate ${a.category === 'cancellation' ? 'text-red-900' : 'text-gray-900'}`}>{a.title}</h4>
+                      <div className="flex justify-between items-center border-t border-black/5 pt-4">
+                        <span className="text-[11px] text-gray-500 font-bold flex items-center gap-1.5"><Clock size={14}/> {formatDisplayDate(a.due_date)}</span>
+                        <div className="flex items-center gap-2.5">
+                          {/* 🚀 상세 보기 안내 텍스트 추가 */}
+                          <span className="text-[10px] text-indigo-400 font-black animate-pulse">상세 내용 확인</span>
+                          <button onClick={async (e) => { e.stopPropagation(); const { data } = await supabase.from('assignments').update({ is_completed: !a.is_completed }).eq('id', a.id).select(); setCoursework(safeCoursework.map(item => item.id === a.id ? data[0] : item)); }} className={`w-9 h-5 rounded-full p-0.5 transition-all ${a.is_completed ? 'bg-[#6b62ff]' : 'bg-gray-300'}`}><div className={`bg-white w-4 h-4 rounded-full shadow-sm transform transition-all ${a.is_completed ? 'translate-x-4' : ''}`} /></button>
                         </div>
                       </div>
                     </div>
                   );
                 })}
-                {tasks.length === 0 && <p className="col-span-full text-center py-4 text-xs text-gray-400 font-bold">등록된 과제나 일정이 없습니다.</p>}
+                {tasks.length === 0 && <p className="col-span-full text-center py-6 text-xs md:text-sm text-gray-400 font-bold">등록된 과제나 일정이 없습니다.</p>}
               </div>
             </div>
           );
