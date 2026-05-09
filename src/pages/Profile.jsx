@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { 
   User, ShieldCheck, LogOut, Settings, Calendar, 
-  BookOpen, Edit3, Check, X, Mail, GraduationCap, FileText 
+  BookOpen, Edit3, Check, X, GraduationCap 
 } from 'lucide-react';
 import { supabase } from '../supabaseClient';
 
@@ -9,30 +9,39 @@ export default function Profile({ userProfile = {}, setUserProfile, showAlert })
   // 연동 및 편집 상태 관리
   const [isEditing, setIsEditing] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [isGoogleLinked, setIsGoogleLinked] = useState(true);
+  const [isGoogleLinked, setIsGoogleLinked] = useState(false);
   const [isLmsLinked, setIsLmsLinked] = useState(false);
 
-  // 입력 폼 상태 (초기값은 userProfile에서 가져옴)
+  // 입력 폼 상태 (대학교, 대학원 필드 추가)
   const [formData, setFormData] = useState({
     nickname: userProfile.nickname || '',
     real_name: userProfile.real_name || '',
+    university: userProfile.university || '',
+    grad_school: userProfile.grad_school || '',
     department: userProfile.department || '',
     bio: userProfile.bio || ''
   });
 
-  // 프로필 데이터 변경 시 폼 데이터 업데이트
+  // 컴포넌트 마운트 시 구글 토큰 여부 확인 및 폼 데이터 초기화
   useEffect(() => {
     setFormData({
       nickname: userProfile.nickname || '',
       real_name: userProfile.real_name || '',
+      university: userProfile.university || '',
+      grad_school: userProfile.grad_school || '',
       department: userProfile.department || '',
       bio: userProfile.bio || ''
     });
+
+    // 로컬 스토리지에 구글 토큰이 있으면 연동된 것으로 간주
+    const token = localStorage.getItem('google_provider_token');
+    setIsGoogleLinked(!!token);
   }, [userProfile]);
 
   // 로그아웃 처리
   const handleLogout = async () => {
     try {
+      localStorage.removeItem('google_provider_token'); // 로그아웃 시 토큰 날림
       await supabase.auth.signOut();
     } catch (error) {
       if (showAlert) showAlert('로그아웃 중 오류가 발생했습니다.');
@@ -50,6 +59,8 @@ export default function Profile({ userProfile = {}, setUserProfile, showAlert })
         .update({
           nickname: formData.nickname,
           real_name: formData.real_name,
+          university: formData.university,      // 대학교 추가
+          grad_school: formData.grad_school,    // 대학원 추가
           department: formData.department,
           bio: formData.bio,
           updated_at: new Date()
@@ -58,7 +69,6 @@ export default function Profile({ userProfile = {}, setUserProfile, showAlert })
 
       if (error) throw error;
 
-      // 상위 App state 업데이트
       if (setUserProfile) {
         setUserProfile({ ...userProfile, ...formData });
       }
@@ -72,14 +82,38 @@ export default function Profile({ userProfile = {}, setUserProfile, showAlert })
     }
   };
 
-  const toggleGoogle = () => {
-    setIsGoogleLinked(!isGoogleLinked);
-    if (showAlert) showAlert(!isGoogleLinked ? '✅ Google 연동이 활성화되었습니다.' : 'Google 연동이 해제되었습니다.');
+  // 🚀 실제 구글 권한 연동 및 해제 로직 적용
+  const toggleGoogle = async () => {
+    if (isGoogleLinked) {
+      // 1. 연동 해제 (로컬 토큰 삭제로 접근 차단)
+      localStorage.removeItem('google_provider_token');
+      setIsGoogleLinked(false);
+      if (showAlert) showAlert('구글 연동이 해제되었습니다.');
+    } else {
+      // 2. 연동 시작 (Supabase OAuth 호출하여 클래스룸 권한 요청)
+      if (showAlert) showAlert('구글 계정 연동 페이지로 이동합니다...');
+      
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          scopes: 'https://www.googleapis.com/auth/classroom.courses.readonly https://www.googleapis.com/auth/classroom.coursework.me.readonly',
+          queryParams: {
+            access_type: 'offline',
+            prompt: 'consent',
+          },
+          redirectTo: window.location.origin
+        }
+      });
+
+      if (error && showAlert) {
+        showAlert('구글 연동 중 오류가 발생했습니다: ' + error.message);
+      }
+    }
   };
 
+  // LMS 연동 (실제 대학 시스템 통합 전까지 준비 중 처리)
   const toggleLms = () => {
-    setIsLmsLinked(!isLmsLinked);
-    if (showAlert) showAlert(!isLmsLinked ? '✅ 학교 LMS 연동이 활성화되었습니다.' : '학교 LMS 연동이 해제되었습니다.');
+    if (showAlert) showAlert('🚨 학교 LMS 연동 기능은 현재 개발 준비 중입니다. (각 대학별 API 규격 확정 후 지원 예정)');
   };
 
   return (
@@ -103,7 +137,8 @@ export default function Profile({ userProfile = {}, setUserProfile, showAlert })
             </div>
             
             <h2 className="text-xl md:text-2xl font-black text-gray-900">{userProfile.nickname || '연구자'}</h2>
-            <p className="text-gray-400 font-bold mb-4">{userProfile.department || '학과 미지정'}</p>
+            <p className="text-gray-500 font-bold mt-1 text-sm">{userProfile.university || '소속 대학 미입력'}</p>
+            <p className="text-gray-400 font-bold mb-4 text-sm">{userProfile.department || '학과 미지정'}</p>
             
             <div className="bg-green-50 text-green-600 px-4 py-2 rounded-full text-[11px] font-black flex items-center mb-8">
               <ShieldCheck size={14} className="mr-2" /> 대학원생 인증됨
@@ -155,6 +190,29 @@ export default function Profile({ userProfile = {}, setUserProfile, showAlert })
                   onChange={(e) => setFormData({...formData, real_name: e.target.value})}
                 />
               </div>
+
+              {/* 🚀 대학교 / 대학원 입력 필드 추가 */}
+              <div className="space-y-2">
+                <label className="text-xs font-black text-gray-400 ml-1">대학교</label>
+                <input 
+                  disabled={!isEditing}
+                  placeholder="예: 한국대학교"
+                  className={`w-full px-4 py-3.5 rounded-2xl font-bold text-sm transition-all ${isEditing ? 'bg-gray-50 border-2 border-indigo-100 focus:bg-white outline-none' : 'bg-transparent border-2 border-transparent text-gray-800'}`}
+                  value={formData.university}
+                  onChange={(e) => setFormData({...formData, university: e.target.value})}
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-xs font-black text-gray-400 ml-1">대학원 (소속기관)</label>
+                <input 
+                  disabled={!isEditing}
+                  placeholder="예: 일반대학원"
+                  className={`w-full px-4 py-3.5 rounded-2xl font-bold text-sm transition-all ${isEditing ? 'bg-gray-50 border-2 border-indigo-100 focus:bg-white outline-none' : 'bg-transparent border-2 border-transparent text-gray-800'}`}
+                  value={formData.grad_school}
+                  onChange={(e) => setFormData({...formData, grad_school: e.target.value})}
+                />
+              </div>
+
               <div className="space-y-2 md:col-span-2">
                 <label className="text-xs font-black text-gray-400 ml-1">학과 / 전공</label>
                 <input 
@@ -198,6 +256,7 @@ export default function Profile({ userProfile = {}, setUserProfile, showAlert })
             </h3>
             
             <div className="space-y-4">
+              {/* 구글 연동 */}
               <div className={`flex flex-col sm:flex-row justify-between items-start sm:items-center p-5 rounded-2xl border transition-all gap-4 ${isGoogleLinked ? 'bg-indigo-50/30 border-indigo-100' : 'bg-slate-50 border-gray-100'}`}>
                 <div className="flex items-center space-x-4">
                   <div className={`p-3 rounded-xl ${isGoogleLinked ? 'bg-indigo-500 text-white' : 'bg-gray-200 text-gray-400'}`}>
@@ -206,7 +265,7 @@ export default function Profile({ userProfile = {}, setUserProfile, showAlert })
                   <div>
                     <p className="font-black text-gray-800 text-sm md:text-base">Google Workspace</p>
                     <p className={`text-[11px] font-bold mt-0.5 ${isGoogleLinked ? 'text-indigo-600' : 'text-gray-400'}`}>
-                      {isGoogleLinked ? '캘린더, 클래스룸 연동 활성화' : '연동이 필요합니다'}
+                      {isGoogleLinked ? '캘린더, 클래스룸 데이터 동기화 활성' : '클래스룸 과제를 가져오려면 연동이 필요합니다'}
                     </p>
                   </div>
                 </div>
@@ -218,15 +277,16 @@ export default function Profile({ userProfile = {}, setUserProfile, showAlert })
                 </button>
               </div>
 
+              {/* 학교 LMS 연동 */}
               <div className={`flex flex-col sm:flex-row justify-between items-start sm:items-center p-5 rounded-2xl border transition-all gap-4 ${isLmsLinked ? 'bg-indigo-50/30 border-indigo-100' : 'bg-slate-50 border-gray-100'}`}>
                 <div className="flex items-center space-x-4">
                   <div className={`p-3 rounded-xl ${isLmsLinked ? 'bg-indigo-500 text-white' : 'bg-gray-200 text-gray-400'}`}>
                     <BookOpen size={20} />
                   </div>
                   <div>
-                    <p className="font-black text-gray-800 text-sm md:text-base">학교 LMS 시스템</p>
+                    <p className="font-black text-gray-800 text-sm md:text-base">학교 LMS 시스템 (준비 중)</p>
                     <p className={`text-[11px] font-bold mt-0.5 ${isLmsLinked ? 'text-indigo-600' : 'text-gray-400'}`}>
-                      {isLmsLinked ? '과제 자동 수집 활성화' : '연동이 필요합니다'}
+                      {isLmsLinked ? '과제 자동 수집 활성화' : '대학별 API 규격 확정 후 지원 예정입니다.'}
                     </p>
                   </div>
                 </div>
