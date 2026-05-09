@@ -31,15 +31,38 @@ export default function Dashboard({ courses = [], coursework = [], setCoursework
   const latestGoogleTask = classroomTasks.length > 0 ? classroomTasks[0] : null;
   const hasNewClassroomTask = !!latestGoogleTask;
 
-  // 마감 임박 과제 추출
+  // 🚀 1. 마감 임박 과제 추출 로직 수정 (개인 일정 제외, 과제만 추출)
   const imminentTask = [...coursework]
-    .filter(a => !a.is_completed)
+    .filter(a => 
+      !a.is_completed && 
+      a.course_id && // 과목이 연결된 것만
+      (a.category === 'assignment' || !a.category) // 과제 카테고리만
+    )
     .sort((a, b) => new Date(a.due_date) - new Date(b.due_date))[0];
+
+  // 과목명 찾기 헬퍼
+  const getCourseName = (courseId) => {
+    const course = courses.find(c => c.id === courseId);
+    return course ? course.name : '연결된 과목 없음';
+  };
 
   const calculateDDay = (date) => {
     if (!date) return '';
     const diff = Math.ceil((new Date(date) - new Date().setHours(0,0,0,0)) / 86400000);
     return diff > 0 ? `D-${diff}` : diff === 0 ? 'D-Day' : `D+${Math.abs(diff)}`;
+  };
+
+  // 🚀 2. 날짜 형식 변환 (mm/dd(요일) hh:mm)
+  const formatImminentDate = (dateString) => {
+    if (!dateString) return '';
+    const d = new Date(dateString);
+    const week = ['일', '월', '화', '수', '목', '금', '토'];
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const dd = String(d.getDate()).padStart(2, '0');
+    const day = week[d.getDay()];
+    const hh = String(d.getHours()).padStart(2, '0');
+    const min = String(d.getMinutes()).padStart(2, '0');
+    return `${mm}/${dd}(${day}) ${hh}:${min}`;
   };
 
   const quickActions = [
@@ -49,27 +72,22 @@ export default function Dashboard({ courses = [], coursework = [], setCoursework
     { label: '설정 관리', id: 'profile', icon: <Settings className="text-orange-400" /> }
   ];
 
-  // 🚀 AI 분석 실행 트리거
   const handleAiSplit = async () => {
     if (!latestGoogleTask) return;
     setIsAnalyzing(true);
-    
     const result = await analyzeAssignmentWithAI(latestGoogleTask);
-    
     setIsAnalyzing(false);
     if (result) {
       setAnalyzedData(result);
-      setAiResultModal(true); // 분석 완료 후 모달 띄우기
+      setAiResultModal(true);
     } else {
       alert("AI 분석 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.");
     }
   };
 
-  // 🚀 AI 분석 결과를 DB(Supabase)에 저장하고 모달 닫기
   const handleSaveAiTask = async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      
       const payload = {
         title: analyzedData.title,
         description: analyzedData.description,
@@ -77,15 +95,13 @@ export default function Dashboard({ courses = [], coursework = [], setCoursework
         sub_tasks: analyzedData.subTasks,
         category: 'assignment',
         user_id: user.id,
-        course_id: null // 클래스룸 연동 과목은 직접 선택할 수 있도록 임시로 null 처리
+        course_id: null 
       };
-
       const res = await supabase.from('assignments').insert([payload]).select();
-      
       if (!res.error && setCoursework) {
         setCoursework([...coursework, res.data[0]]);
         setAiResultModal(false);
-        setActiveTab('coursework'); // 저장 완료 후 과제 탭으로 자동 이동
+        setActiveTab('coursework');
       }
     } catch (err) {
       alert("저장 실패: " + err.message);
@@ -110,7 +126,7 @@ export default function Dashboard({ courses = [], coursework = [], setCoursework
         </div>
       </div>
 
-      {/* 2. 구글 클래스룸 자동 감지 배너 */}
+      {/* 구글 클래스룸 자동 감지 배너 */}
       <div className="bg-[#f0f7ff] border border-blue-100 rounded-[20px] md:rounded-[24px] p-4 md:p-5 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 shadow-sm">
         <div className="flex items-center space-x-3 w-full">
           <div className="relative bg-[#4a89ff] p-3 rounded-xl text-white shadow-md shrink-0">
@@ -158,7 +174,7 @@ export default function Dashboard({ courses = [], coursework = [], setCoursework
         </button>
       </div>
 
-      {/* 3. 마감 임박 과제 메인 카드 */}
+      {/* 🚀 3. 마감 임박 과제 메인 카드 (수정됨) */}
       <div className="bg-[#111827] rounded-[24px] md:rounded-[32px] p-6 md:p-8 shadow-xl relative overflow-hidden text-white group">
         <div className="flex justify-between items-center mb-6 md:mb-8">
           <h3 className="text-base md:text-lg font-bold flex items-center italic">
@@ -172,22 +188,26 @@ export default function Dashboard({ courses = [], coursework = [], setCoursework
 
         {imminentTask ? (
           <div onClick={() => setActiveTab('coursework')} className="bg-white/5 border border-white/10 rounded-[20px] md:rounded-[24px] p-5 md:p-6 w-full lg:max-w-md backdrop-blur-md cursor-pointer hover:bg-white/10 transition-all border-l-4 border-l-red-500">
-            <div className="flex justify-between items-center mb-4">
-              <span className="bg-red-500 text-white px-2.5 py-1 rounded-md text-[9px] md:text-[10px] font-black uppercase tracking-tighter">
-                {calculateDDay(imminentTask.due_date)}
-              </span>
-              <span className="text-white/40 text-[9px] md:text-[10px] font-black uppercase tracking-widest">연구 프로젝트</span>
-            </div>
-            <h4 className="text-lg md:text-xl font-black text-white mb-4 leading-tight truncate">{imminentTask.title}</h4>
-            <div className="space-y-1.5">
-              <div className="flex justify-between text-[9px] md:text-[10px] font-bold text-white/40 px-1">
-                <span>진행 상황</span>
-                <span>33%</span>
-              </div>
-              <div className="w-full bg-white/10 h-1.5 md:h-2 rounded-full overflow-hidden">
-                <div className="bg-indigo-400 h-full w-[33%] rounded-full shadow-[0_0_10px_rgba(129,140,248,0.5)]"></div>
+            <div className="flex justify-between items-center mb-2">
+              <div className="flex items-center gap-2">
+                <span className="bg-red-500 text-white px-2.5 py-1 rounded-md text-[10px] md:text-[11px] font-black uppercase tracking-tighter">
+                  {calculateDDay(imminentTask.due_date)}
+                </span>
+                <span className="text-red-400 text-[11px] md:text-xs font-black">
+                  {formatImminentDate(imminentTask.due_date)} 마감
+                </span>
               </div>
             </div>
+            
+            {/* 🚀 과목명 표시 (크게 강조) */}
+            <h4 className="text-xl md:text-2xl font-black text-indigo-300 mb-2 leading-tight">
+              {getCourseName(imminentTask.course_id)}
+            </h4>
+            
+            {/* 과제 제목 */}
+            <p className="text-sm md:text-base font-bold text-white/80 truncate">
+              {imminentTask.title}
+            </p>
           </div>
         ) : (
           <div className="py-8 md:py-10 text-center">
@@ -209,7 +229,7 @@ export default function Dashboard({ courses = [], coursework = [], setCoursework
         ))}
       </div>
 
-      {/* 🤖 AI 분석 결과 확인 및 저장 모달 */}
+      {/* AI 분석 결과 확인 및 저장 모달 */}
       {aiResultModal && analyzedData && (
         <div className="fixed inset-0 bg-black/50 z-[200] flex items-center justify-center p-4 backdrop-blur-sm animate-in fade-in">
           <div className="bg-white rounded-3xl w-full max-w-md shadow-2xl overflow-hidden animate-in zoom-in-95 flex flex-col max-h-[85vh]">
