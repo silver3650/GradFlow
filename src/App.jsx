@@ -17,6 +17,8 @@ export default function App() {
   const [userProfile, setUserProfile] = useState({});
   const [toast, setToast] = useState('');
   
+  const [providerToken, setProviderToken] = useState(localStorage.getItem('google_provider_token') || null);
+  
   const mainContentRef = useRef(null);
 
   const showAlert = (msg) => {
@@ -27,15 +29,27 @@ export default function App() {
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
+      if (session?.provider_token) {
+        setProviderToken(session.provider_token);
+        localStorage.setItem('google_provider_token', session.provider_token);
+      }
       setIsAuthLoading(false);
     });
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       setSession(session);
+      if (session?.provider_token) {
+        setProviderToken(session.provider_token);
+        localStorage.setItem('google_provider_token', session.provider_token);
+      }
+      if (event === 'SIGNED_OUT') {
+        setProviderToken(null);
+        localStorage.removeItem('google_provider_token');
+      }
     });
     return () => subscription.unsubscribe();
   }, []);
 
-  // 탭 전환 시 최상단 자동 스크롤[cite: 3]
   useEffect(() => {
     if (mainContentRef.current) {
       mainContentRef.current.scrollTo(0, 0);
@@ -96,7 +110,8 @@ export default function App() {
 
       <main ref={mainContentRef} className="flex-1 overflow-y-auto p-4 md:p-12 pt-[72px] md:pt-12 pb-20 md:pb-12 scroll-smooth">
         <div className="max-w-5xl mx-auto">
-          {activeTab === 'dashboard' && <Dashboard courses={courses} coursework={coursework} userProfile={userProfile} setActiveTab={setActiveTab} />}
+          {/* 🔥 Dashboard에 setCoursework 추가 (AI 일정 저장 시 필요) */}
+          {activeTab === 'dashboard' && <Dashboard courses={courses} coursework={coursework} setCoursework={setCoursework} userProfile={userProfile} setActiveTab={setActiveTab} providerToken={providerToken} />}
           {activeTab === 'coursework' && <Coursework courses={courses} setCourses={setCourses} coursework={coursework} setCoursework={setCoursework} showAlert={showAlert} />}
           {activeTab === 'calendar' && <CalendarView courses={courses} coursework={coursework} />}
           {activeTab === 'profile' && <Profile userProfile={userProfile} setUserProfile={setUserProfile} showAlert={showAlert} />}

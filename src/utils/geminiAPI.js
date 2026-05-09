@@ -5,7 +5,6 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
  */
 
 // 개발 환경변수에서 API 키를 가져옵니다. 
-// (Vite를 쓴다면 import.meta.env.VITE_GEMINI_API_KEY, CRA라면 process.env.REACT_APP_GEMINI_API_KEY)
 const API_KEY = import.meta.env.VITE_GEMINI_API_KEY || "여기에_제미나이_API_키를_입력하세요"; 
 
 export const analyzeAssignmentWithAI = async (taskRawData) => {

@@ -1,116 +1,245 @@
-import React, { useState } from 'react';
-import { User, ShieldCheck, LogOut, Settings, Calendar, BookOpen } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { 
+  User, ShieldCheck, LogOut, Settings, Calendar, 
+  BookOpen, Edit3, Check, X, Mail, GraduationCap, FileText 
+} from 'lucide-react';
 import { supabase } from '../supabaseClient';
 
-export default function Profile({ userProfile = {}, showAlert }) {
-  // 연동 상태 관리
+export default function Profile({ userProfile = {}, setUserProfile, showAlert }) {
+  // 연동 및 편집 상태 관리
+  const [isEditing, setIsEditing] = useState(false);
+  const [loading, setLoading] = useState(false);
   const [isGoogleLinked, setIsGoogleLinked] = useState(true);
   const [isLmsLinked, setIsLmsLinked] = useState(false);
 
-  // ✅ 로그아웃 처리 함수 (SPA 방식)
+  // 입력 폼 상태 (초기값은 userProfile에서 가져옴)
+  const [formData, setFormData] = useState({
+    nickname: userProfile.nickname || '',
+    real_name: userProfile.real_name || '',
+    department: userProfile.department || '',
+    bio: userProfile.bio || ''
+  });
+
+  // 프로필 데이터 변경 시 폼 데이터 업데이트
+  useEffect(() => {
+    setFormData({
+      nickname: userProfile.nickname || '',
+      real_name: userProfile.real_name || '',
+      department: userProfile.department || '',
+      bio: userProfile.bio || ''
+    });
+  }, [userProfile]);
+
+  // 로그아웃 처리
   const handleLogout = async () => {
     try {
-      // signOut만 호출하면 App.jsx의 onAuthStateChange가 감지하여 자동으로 AuthScreen을 렌더링합니다.
       await supabase.auth.signOut();
     } catch (error) {
       if (showAlert) showAlert('로그아웃 중 오류가 발생했습니다.');
     }
   };
 
+  // 프로필 정보 저장
+  const handleUpdateProfile = async () => {
+    setLoading(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      const { error } = await supabase
+        .from('profiles')
+        .update({
+          nickname: formData.nickname,
+          real_name: formData.real_name,
+          department: formData.department,
+          bio: formData.bio,
+          updated_at: new Date()
+        })
+        .eq('id', user.id);
+
+      if (error) throw error;
+
+      // 상위 App state 업데이트
+      if (setUserProfile) {
+        setUserProfile({ ...userProfile, ...formData });
+      }
+      
+      setIsEditing(false);
+      if (showAlert) showAlert('✅ 프로필 정보가 성공적으로 업데이트되었습니다.');
+    } catch (error) {
+      if (showAlert) showAlert('🚨 정보 업데이트에 실패했습니다.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const toggleGoogle = () => {
     setIsGoogleLinked(!isGoogleLinked);
-    if (showAlert) showAlert(!isGoogleLinked ? '✅ Google Workspace 연동이 활성화되었습니다.' : 'Google 연동이 해제되었습니다.');
+    if (showAlert) showAlert(!isGoogleLinked ? '✅ Google 연동이 활성화되었습니다.' : 'Google 연동이 해제되었습니다.');
   };
 
   const toggleLms = () => {
     setIsLmsLinked(!isLmsLinked);
-    if (showAlert) showAlert(!isLmsLinked ? '✅ 학교 LMS 과제 수집이 활성화되었습니다.' : '학교 LMS 연동이 해제되었습니다.');
+    if (showAlert) showAlert(!isLmsLinked ? '✅ 학교 LMS 연동이 활성화되었습니다.' : '학교 LMS 연동이 해제되었습니다.');
   };
 
   return (
-    <div className="space-y-10 animate-in fade-in duration-500 pb-20 text-left font-sans">
-      <div>
-        <h1 className="text-3xl font-black text-gray-900 mb-2 tracking-tighter">MY</h1>
-        <p className="text-gray-500 font-medium">내 프로필 정보 및 연동 설정을 관리합니다.</p>
+    <div className="space-y-6 md:space-y-10 animate-in fade-in duration-500 pb-24 text-left font-sans px-1">
+      <div className="flex justify-between items-end">
+        <div>
+          <h1 className="text-3xl font-black text-gray-900 mb-2 tracking-tighter">MY PROFILE</h1>
+          <p className="text-gray-500 font-medium text-sm md:text-base">회원 정보 및 대시보드 연동 설정을 관리합니다.</p>
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         
-        {/* 프로필 카드[cite: 6] */}
-        <div className="bg-white rounded-[32px] border border-gray-100 p-8 shadow-sm flex flex-col items-center relative overflow-hidden">
-          <div className="absolute top-0 left-0 w-full h-32 bg-gradient-to-br from-indigo-50 to-white -z-10"></div>
-          
-          <div className="w-24 h-24 bg-white shadow-md text-indigo-600 rounded-full flex items-center justify-center mb-6 mt-4">
-            <User size={48} />
+        {/* 좌측: 요약 프로필 카드 */}
+        <div className="lg:col-span-1 space-y-6">
+          <div className="bg-white rounded-[32px] border border-gray-100 p-6 md:p-8 shadow-sm flex flex-col items-center relative overflow-hidden">
+            <div className="absolute top-0 left-0 w-full h-32 bg-gradient-to-br from-indigo-50 to-white -z-10"></div>
+            
+            <div className="w-20 h-20 md:w-24 md:h-24 bg-white shadow-md text-indigo-600 rounded-full flex items-center justify-center mb-6 mt-4 border-4 border-white">
+              <User size={40} />
+            </div>
+            
+            <h2 className="text-xl md:text-2xl font-black text-gray-900">{userProfile.nickname || '연구자'}</h2>
+            <p className="text-gray-400 font-bold mb-4">{userProfile.department || '학과 미지정'}</p>
+            
+            <div className="bg-green-50 text-green-600 px-4 py-2 rounded-full text-[11px] font-black flex items-center mb-8">
+              <ShieldCheck size={14} className="mr-2" /> 대학원생 인증됨
+            </div>
+            
+            <div className="w-full space-y-3">
+              <button 
+                onClick={() => setIsEditing(!isEditing)}
+                className={`w-full py-3.5 rounded-2xl font-black flex items-center justify-center gap-2 transition-all text-sm ${isEditing ? 'bg-gray-100 text-gray-500' : 'bg-indigo-600 text-white shadow-lg shadow-indigo-100 hover:bg-indigo-700'}`}
+              >
+                {isEditing ? <><X size={18} /> 취소하기</> : <><Edit3 size={18} /> 정보 수정</>}
+              </button>
+              
+              <button 
+                onClick={handleLogout} 
+                className="w-full py-3.5 bg-red-50 text-red-500 rounded-2xl font-black flex items-center justify-center gap-2 hover:bg-red-500 hover:text-white transition-all text-sm"
+              >
+                <LogOut size={18} /> 로그아웃
+              </button>
+            </div>
           </div>
-          <h2 className="text-2xl font-black text-gray-900">{userProfile.nickname || '연구자'}</h2>
-          <p className="text-gray-400 font-bold mb-6">{userProfile.real_name || '대학원생'}</p>
-          
-          <div className="bg-green-50 text-green-600 px-4 py-2.5 rounded-full text-xs font-black flex items-center mb-8 shadow-sm">
-            <ShieldCheck size={16} className="mr-2" /> 대학원생 인증됨
-          </div>
-          
-          {/* ✅ 로그아웃 버튼 */}
-          <button 
-            onClick={handleLogout} 
-            className="w-full py-4 bg-red-50 text-red-500 rounded-2xl font-black flex items-center justify-center gap-2 hover:bg-red-500 hover:text-white transition-all shadow-sm"
-          >
-            <LogOut size={18} /> 로그아웃
-          </button>
         </div>
 
-        {/* 설정 영역 */}
-        <div className="md:col-span-2 space-y-6">
-          <div className="bg-white rounded-[32px] border border-gray-100 p-8 shadow-sm">
+        {/* 우측: 상세 정보 수정 폼 및 설정 */}
+        <div className="lg:col-span-2 space-y-6">
+          
+          {/* 기본 정보 수정 섹션 */}
+          <div className="bg-white rounded-[32px] border border-gray-100 p-6 md:p-8 shadow-sm">
+            <h3 className="text-lg font-black text-gray-800 mb-6 flex items-center">
+              <GraduationCap className="mr-3 text-indigo-500" size={22} /> 학업 및 계정 정보
+            </h3>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5 md:gap-6">
+              <div className="space-y-2">
+                <label className="text-xs font-black text-gray-400 ml-1">닉네임</label>
+                <input 
+                  disabled={!isEditing}
+                  className={`w-full px-4 py-3.5 rounded-2xl font-bold text-sm transition-all ${isEditing ? 'bg-gray-50 border-2 border-indigo-100 focus:bg-white outline-none' : 'bg-transparent border-2 border-transparent text-gray-800'}`}
+                  value={formData.nickname}
+                  onChange={(e) => setFormData({...formData, nickname: e.target.value})}
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-xs font-black text-gray-400 ml-1">실명</label>
+                <input 
+                  disabled={!isEditing}
+                  className={`w-full px-4 py-3.5 rounded-2xl font-bold text-sm transition-all ${isEditing ? 'bg-gray-50 border-2 border-indigo-100 focus:bg-white outline-none' : 'bg-transparent border-2 border-transparent text-gray-800'}`}
+                  value={formData.real_name}
+                  onChange={(e) => setFormData({...formData, real_name: e.target.value})}
+                />
+              </div>
+              <div className="space-y-2 md:col-span-2">
+                <label className="text-xs font-black text-gray-400 ml-1">학과 / 전공</label>
+                <input 
+                  disabled={!isEditing}
+                  placeholder="예: 컴퓨터공학과 인공지능 전공"
+                  className={`w-full px-4 py-3.5 rounded-2xl font-bold text-sm transition-all ${isEditing ? 'bg-gray-50 border-2 border-indigo-100 focus:bg-white outline-none' : 'bg-transparent border-2 border-transparent text-gray-800'}`}
+                  value={formData.department}
+                  onChange={(e) => setFormData({...formData, department: e.target.value})}
+                />
+              </div>
+              <div className="space-y-2 md:col-span-2">
+                <label className="text-xs font-black text-gray-400 ml-1">연구 분야 및 한 줄 소개</label>
+                <textarea 
+                  disabled={!isEditing}
+                  rows={3}
+                  placeholder="본인의 연구 분야나 목표를 적어주세요."
+                  className={`w-full px-4 py-3.5 rounded-2xl font-bold text-sm transition-all resize-none ${isEditing ? 'bg-gray-50 border-2 border-indigo-100 focus:bg-white outline-none' : 'bg-transparent border-2 border-transparent text-gray-800'}`}
+                  value={formData.bio}
+                  onChange={(e) => setFormData({...formData, bio: e.target.value})}
+                />
+              </div>
+            </div>
+
+            {isEditing && (
+              <div className="mt-8">
+                <button 
+                  onClick={handleUpdateProfile}
+                  disabled={loading}
+                  className="w-full py-4 bg-[#4b44e6] text-white rounded-2xl font-black flex items-center justify-center gap-2 shadow-lg shadow-indigo-100 hover:bg-indigo-700 transition-all"
+                >
+                  {loading ? '저장 중...' : <><Check size={20} /> 변경사항 저장하기</>}
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* 서비스 연동 섹션 */}
+          <div className="bg-white rounded-[32px] border border-gray-100 p-6 md:p-8 shadow-sm">
             <h3 className="text-lg font-black text-gray-800 mb-6 flex items-center">
               <Settings className="mr-3 text-indigo-500" size={20} /> 외부 서비스 연동
             </h3>
             
             <div className="space-y-4">
-              {/* Google 연동 블록 */}
-              <div className={`flex justify-between items-center p-4 md:p-5 rounded-2xl border transition-all duration-300 ${isGoogleLinked ? 'bg-indigo-50/50 border-indigo-100' : 'bg-slate-50 border-gray-100'}`}>
+              <div className={`flex flex-col sm:flex-row justify-between items-start sm:items-center p-5 rounded-2xl border transition-all gap-4 ${isGoogleLinked ? 'bg-indigo-50/30 border-indigo-100' : 'bg-slate-50 border-gray-100'}`}>
                 <div className="flex items-center space-x-4">
-                  <div className={`p-3 rounded-xl transition-colors ${isGoogleLinked ? 'bg-indigo-500 text-white shadow-md' : 'bg-gray-200 text-gray-400'}`}>
+                  <div className={`p-3 rounded-xl ${isGoogleLinked ? 'bg-indigo-500 text-white' : 'bg-gray-200 text-gray-400'}`}>
                     <Calendar size={20} />
                   </div>
                   <div>
-                    <p className="font-black text-gray-800">Google Workspace</p>
-                    <p className={`text-[11px] md:text-xs mt-0.5 ${isGoogleLinked ? 'text-indigo-600 font-bold' : 'text-gray-400'}`}>
+                    <p className="font-black text-gray-800 text-sm md:text-base">Google Workspace</p>
+                    <p className={`text-[11px] font-bold mt-0.5 ${isGoogleLinked ? 'text-indigo-600' : 'text-gray-400'}`}>
                       {isGoogleLinked ? '캘린더, 클래스룸 연동 활성화' : '연동이 필요합니다'}
                     </p>
                   </div>
                 </div>
                 <button 
                   onClick={toggleGoogle}
-                  className={`text-xs font-black px-4 py-2.5 rounded-xl transition-all shadow-sm ${isGoogleLinked ? 'bg-white text-gray-500 border border-gray-100 hover:text-red-500' : 'bg-[#5c56e0] text-white hover:bg-indigo-700'}`}
+                  className={`w-full sm:w-auto text-xs font-black px-5 py-2.5 rounded-xl transition-all ${isGoogleLinked ? 'bg-white text-gray-500 border border-gray-100 hover:text-red-500' : 'bg-[#5c56e0] text-white'}`}
                 >
                   {isGoogleLinked ? '연동 해제' : '연동하기'}
                 </button>
               </div>
 
-              {/* 학교 LMS 연동 블록 */}
-              <div className={`flex justify-between items-center p-4 md:p-5 rounded-2xl border transition-all duration-300 ${isLmsLinked ? 'bg-indigo-50/50 border-indigo-100' : 'bg-slate-50 border-gray-100'}`}>
+              <div className={`flex flex-col sm:flex-row justify-between items-start sm:items-center p-5 rounded-2xl border transition-all gap-4 ${isLmsLinked ? 'bg-indigo-50/30 border-indigo-100' : 'bg-slate-50 border-gray-100'}`}>
                 <div className="flex items-center space-x-4">
-                  <div className={`p-3 rounded-xl transition-colors ${isLmsLinked ? 'bg-indigo-500 text-white shadow-md' : 'bg-gray-200 text-gray-400'}`}>
+                  <div className={`p-3 rounded-xl ${isLmsLinked ? 'bg-indigo-500 text-white' : 'bg-gray-200 text-gray-400'}`}>
                     <BookOpen size={20} />
                   </div>
                   <div>
-                    <p className="font-black text-gray-800">학교 LMS 시스템</p>
-                    <p className={`text-[11px] md:text-xs mt-0.5 ${isLmsLinked ? 'text-indigo-600 font-bold' : 'text-gray-400'}`}>
+                    <p className="font-black text-gray-800 text-sm md:text-base">학교 LMS 시스템</p>
+                    <p className={`text-[11px] font-bold mt-0.5 ${isLmsLinked ? 'text-indigo-600' : 'text-gray-400'}`}>
                       {isLmsLinked ? '과제 자동 수집 활성화' : '연동이 필요합니다'}
                     </p>
                   </div>
                 </div>
                 <button 
                   onClick={toggleLms}
-                  className={`text-xs font-black px-4 py-2.5 rounded-xl transition-all shadow-sm ${isLmsLinked ? 'bg-white text-gray-500 border border-gray-100 hover:text-red-500' : 'bg-[#5c56e0] text-white hover:bg-indigo-700'}`}
+                  className={`w-full sm:w-auto text-xs font-black px-5 py-2.5 rounded-xl transition-all ${isLmsLinked ? 'bg-white text-gray-500 border border-gray-100 hover:text-red-500' : 'bg-[#5c56e0] text-white'}`}
                 >
                   {isLmsLinked ? '연동 해제' : '연동하기'}
                 </button>
               </div>
             </div>
-
           </div>
+
         </div>
       </div>
     </div>

@@ -1,7 +1,6 @@
 /**
  * Google Classroom API 연동 유틸리티
  */
-
 export const fetchGoogleClassroomAssignments = async (accessToken) => {
   if (!accessToken) {
     console.error("Google Access Token이 없습니다. 로그인을 확인해주세요.");
