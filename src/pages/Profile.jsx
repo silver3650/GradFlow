@@ -10,9 +10,10 @@ export default function Profile({ userProfile = {}, setUserProfile, showAlert })
   const [loading, setLoading] = useState(false);
   const [isGoogleLinked, setIsGoogleLinked] = useState(false);
   const [isLmsLinked, setIsLmsLinked] = useState(false);
-  
-  // '직접 입력' 상태 관리를 위한 state
   const [isCustomDegree, setIsCustomDegree] = useState(false);
+  
+  // 🚀 유저 이메일 상태 추가
+  const [userEmail, setUserEmail] = useState(userProfile.email || '');
 
   const [formData, setFormData] = useState({
     nickname: userProfile.nickname || '',
@@ -20,13 +21,14 @@ export default function Profile({ userProfile = {}, setUserProfile, showAlert })
     university: userProfile.university || '',
     graduate_school: userProfile.graduate_school || '',
     major: userProfile.major || '',
-    degree: userProfile.degree || 'M.S.', // 기본값을 영문 축약형으로 변경
+    degree: userProfile.degree || 'M.S.', 
     semester: userProfile.semester || '1',
     total_semesters: userProfile.total_semesters || '4', 
     bio: userProfile.bio || ''
   });
 
   useEffect(() => {
+    // 1. 폼 데이터 초기화
     const initialDegree = userProfile.degree || 'M.S.';
     setFormData({
       nickname: userProfile.nickname || '',
@@ -40,7 +42,7 @@ export default function Profile({ userProfile = {}, setUserProfile, showAlert })
       bio: userProfile.bio || ''
     });
 
-    // DB에 저장된 학위가 기본 목록에 없는 '직접 입력' 값인지 확인
+    // 2. 직접 입력 학위 여부 확인
     const commonDegrees = ['M.S.', 'M.A.', 'M.B.A.', 'M.Div.', 'Ph.D.', 'M.S./Ph.D.'];
     if (initialDegree && !commonDegrees.includes(initialDegree)) {
       setIsCustomDegree(true);
@@ -48,9 +50,20 @@ export default function Profile({ userProfile = {}, setUserProfile, showAlert })
       setIsCustomDegree(false);
     }
 
+    // 3. 구글 연동 여부 확인
     const token = localStorage.getItem('google_provider_token');
     setIsGoogleLinked(!!token);
-  }, [userProfile]);
+
+    // 4. 이메일 정보 가져오기 (userProfile에 없을 경우를 대비)
+    const fetchAuthUser = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        setUserEmail(user.email);
+      }
+    };
+    if (!userEmail) fetchAuthUser();
+    
+  }, [userProfile, userEmail]);
 
   const handleLogout = async () => {
     try {
@@ -156,10 +169,13 @@ export default function Profile({ userProfile = {}, setUserProfile, showAlert })
                   <ShieldCheck size={12} className="mr-1" /> 인증됨
                 </span>
               </div>
+              {/* 🚀 이메일 정보 노출 */}
+              <p className="text-sm font-medium text-gray-500 mb-2">
+                {userEmail || '이메일 정보 없음'}
+              </p>
               <p className="text-gray-600 font-bold text-sm md:text-base mb-1">
                 {userProfile.university} {userProfile.graduate_school} • {userProfile.major}
               </p>
-              {/* 영문 학위 표기를 변환 함수 없이 바로 렌더링 */}
               <p className="text-indigo-600 font-black text-sm">
                 {userProfile.degree || 'M.S.'} {userProfile.semester}/{userProfile.total_semesters || '4'}학기
               </p>
@@ -217,13 +233,12 @@ export default function Profile({ userProfile = {}, setUserProfile, showAlert })
           </div>
 
           {/* 학과 / 과정 및 학기 */}
-          <div className="space-y-1.5">
+          <div className="space-y-1.5 md:col-span-2">
             <label className="text-xs font-bold text-gray-400">학과(전공) / 학위 및 학기</label>
             {isEditing ? (
-              <div className="flex gap-2">
+              <div className="flex gap-2 w-full md:w-3/4">
                 <input className="w-[45%] px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm font-bold focus:outline-none focus:border-indigo-400" value={formData.major} onChange={(e) => setFormData({...formData, major: e.target.value})} placeholder="학과 및 전공" />
                 
-                {/* 학위 선택 및 직접 입력 처리 */}
                 {isCustomDegree ? (
                   <div className="w-[25%] relative flex items-center">
                     <input 
@@ -253,7 +268,7 @@ export default function Profile({ userProfile = {}, setUserProfile, showAlert })
                     onChange={(e) => {
                       if (e.target.value === 'custom') {
                         setIsCustomDegree(true);
-                        setFormData({...formData, degree: ''}); // 직접 입력 시 입력창 초기화
+                        setFormData({...formData, degree: ''});
                       } else {
                         setFormData({...formData, degree: e.target.value});
                       }
@@ -282,15 +297,17 @@ export default function Profile({ userProfile = {}, setUserProfile, showAlert })
             )}
           </div>
 
-          {/* 연구 분야 소개 */}
-          <div className="space-y-1.5">
-            <label className="text-xs font-bold text-gray-400">한 줄 소개</label>
-            {isEditing ? (
-              <input className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm font-bold focus:outline-none focus:border-indigo-400" value={formData.bio} onChange={(e) => setFormData({...formData, bio: e.target.value})} placeholder="연구 분야나 목표를 적어주세요." />
-            ) : (
-              <p className="text-sm font-bold text-gray-800 py-2">{userProfile.bio || '등록된 소개가 없습니다.'}</p>
-            )}
-          </div>
+          {/* 🚀 연구 분야 소개 (수정 모드이거나, 내용이 있을 때만 렌더링) */}
+          {(isEditing || userProfile.bio) && (
+            <div className="space-y-1.5 md:col-span-2">
+              <label className="text-xs font-bold text-gray-400">한 줄 소개</label>
+              {isEditing ? (
+                <input className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm font-bold focus:outline-none focus:border-indigo-400" value={formData.bio} onChange={(e) => setFormData({...formData, bio: e.target.value})} placeholder="연구 분야나 목표를 적어주세요." />
+              ) : (
+                <p className="text-sm font-bold text-gray-800 py-2">{userProfile.bio}</p>
+              )}
+            </div>
+          )}
         </div>
 
         {isEditing && (
