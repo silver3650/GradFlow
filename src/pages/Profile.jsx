@@ -10,32 +10,43 @@ export default function Profile({ userProfile = {}, setUserProfile, showAlert })
   const [loading, setLoading] = useState(false);
   const [isGoogleLinked, setIsGoogleLinked] = useState(false);
   const [isLmsLinked, setIsLmsLinked] = useState(false);
+  
+  // '직접 입력' 상태 관리를 위한 state
+  const [isCustomDegree, setIsCustomDegree] = useState(false);
 
-  // 💡 DB 테이블 컬럼명과 정확히 일치하도록 상태 변수명 수정
   const [formData, setFormData] = useState({
     nickname: userProfile.nickname || '',
-    full_name: userProfile.full_name || '',             // real_name -> full_name
+    full_name: userProfile.full_name || '',
     university: userProfile.university || '',
-    graduate_school: userProfile.graduate_school || '', // grad_school -> graduate_school
-    major: userProfile.major || '',                     // department -> major
-    degree: userProfile.degree || '석사',
+    graduate_school: userProfile.graduate_school || '',
+    major: userProfile.major || '',
+    degree: userProfile.degree || 'M.S.', // 기본값을 영문 축약형으로 변경
     semester: userProfile.semester || '1',
     total_semesters: userProfile.total_semesters || '4', 
     bio: userProfile.bio || ''
   });
 
   useEffect(() => {
+    const initialDegree = userProfile.degree || 'M.S.';
     setFormData({
       nickname: userProfile.nickname || '',
       full_name: userProfile.full_name || '',
       university: userProfile.university || '',
       graduate_school: userProfile.graduate_school || '',
       major: userProfile.major || '',
-      degree: userProfile.degree || '석사',
+      degree: initialDegree,
       semester: userProfile.semester || '1',
       total_semesters: userProfile.total_semesters || '4',
       bio: userProfile.bio || ''
     });
+
+    // DB에 저장된 학위가 기본 목록에 없는 '직접 입력' 값인지 확인
+    const commonDegrees = ['M.S.', 'M.A.', 'M.B.A.', 'M.Div.', 'Ph.D.', 'M.S./Ph.D.'];
+    if (initialDegree && !commonDegrees.includes(initialDegree)) {
+      setIsCustomDegree(true);
+    } else {
+      setIsCustomDegree(false);
+    }
 
     const token = localStorage.getItem('google_provider_token');
     setIsGoogleLinked(!!token);
@@ -58,7 +69,7 @@ export default function Profile({ userProfile = {}, setUserProfile, showAlert })
       const { error } = await supabase
         .from('profiles')
         .update({
-          ...formData, // 이제 DB 컬럼명과 일치하므로 에러가 발생하지 않음
+          ...formData,
           updated_at: new Date()
         })
         .eq('id', user.id);
@@ -102,18 +113,10 @@ export default function Profile({ userProfile = {}, setUserProfile, showAlert })
     if (showAlert) showAlert('🚨 학교 LMS 연동 기능은 현재 개발 준비 중입니다.');
   };
 
-  // 학위 영문 축약 변환 함수
-  const getDegreeAbbr = (degree) => {
-    if (degree === '석사') return 'M.S.';
-    if (degree === '박사') return 'Ph.D.';
-    if (degree === '석박사통합') return 'M.S./Ph.D.';
-    return degree || 'M.S.';
-  };
-
   return (
     <div className="max-w-5xl mx-auto space-y-6 animate-in fade-in duration-500 pb-24 text-left font-sans px-4">
       
-      {/* 🚀 페이지 타이틀 영역 */}
+      {/* 페이지 타이틀 영역 */}
       <div className="pt-4 pb-2">
         <h1 className="text-3xl font-black text-gray-900 mb-2 tracking-tighter">MY PROFILE</h1>
         <p className="text-gray-500 font-bold text-sm md:text-base">회원 정보 및 외부 서비스 연동 설정을 관리합니다.</p>
@@ -156,8 +159,9 @@ export default function Profile({ userProfile = {}, setUserProfile, showAlert })
               <p className="text-gray-600 font-bold text-sm md:text-base mb-1">
                 {userProfile.university} {userProfile.graduate_school} • {userProfile.major}
               </p>
+              {/* 영문 학위 표기를 변환 함수 없이 바로 렌더링 */}
               <p className="text-indigo-600 font-black text-sm">
-                {getDegreeAbbr(userProfile.degree)} {userProfile.semester}/{userProfile.total_semesters || '4'}학기
+                {userProfile.degree || 'M.S.'} {userProfile.semester}/{userProfile.total_semesters || '4'}학기
               </p>
             </div>
           </div>
@@ -214,15 +218,57 @@ export default function Profile({ userProfile = {}, setUserProfile, showAlert })
 
           {/* 학과 / 과정 및 학기 */}
           <div className="space-y-1.5">
-            <label className="text-xs font-bold text-gray-400">학과(전공) / 과정 및 학기</label>
+            <label className="text-xs font-bold text-gray-400">학과(전공) / 학위 및 학기</label>
             {isEditing ? (
               <div className="flex gap-2">
                 <input className="w-[45%] px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm font-bold focus:outline-none focus:border-indigo-400" value={formData.major} onChange={(e) => setFormData({...formData, major: e.target.value})} placeholder="학과 및 전공" />
-                <select className="w-[25%] px-2 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm font-bold focus:outline-none focus:border-indigo-400" value={formData.degree} onChange={(e) => setFormData({...formData, degree: e.target.value})}>
-                  <option value="석사">석사</option>
-                  <option value="박사">박사</option>
-                  <option value="석박사통합">석/박사 통합</option>
-                </select>
+                
+                {/* 학위 선택 및 직접 입력 처리 */}
+                {isCustomDegree ? (
+                  <div className="w-[25%] relative flex items-center">
+                    <input 
+                      type="text"
+                      className="w-full px-3 py-2.5 bg-white border-2 border-indigo-400 rounded-xl text-sm font-bold focus:outline-none"
+                      value={formData.degree} 
+                      onChange={(e) => setFormData({...formData, degree: e.target.value})} 
+                      placeholder="학위명 입력"
+                      autoFocus
+                    />
+                    <button 
+                      type="button"
+                      onClick={() => {
+                        setIsCustomDegree(false);
+                        setFormData({...formData, degree: 'M.S.'});
+                      }}
+                      className="absolute right-2 text-gray-400 hover:text-gray-700 bg-white"
+                      title="선택 목록으로 돌아가기"
+                    >
+                      <X size={16} />
+                    </button>
+                  </div>
+                ) : (
+                  <select 
+                    className="w-[25%] px-2 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm font-bold focus:outline-none focus:border-indigo-400" 
+                    value={formData.degree} 
+                    onChange={(e) => {
+                      if (e.target.value === 'custom') {
+                        setIsCustomDegree(true);
+                        setFormData({...formData, degree: ''}); // 직접 입력 시 입력창 초기화
+                      } else {
+                        setFormData({...formData, degree: e.target.value});
+                      }
+                    }}
+                  >
+                    <option value="M.S.">M.S.</option>
+                    <option value="M.A.">M.A.</option>
+                    <option value="M.B.A.">M.B.A.</option>
+                    <option value="M.Div.">M.Div.</option>
+                    <option value="Ph.D.">Ph.D.</option>
+                    <option value="M.S./Ph.D.">M.S./Ph.D.</option>
+                    <option value="custom">직접 입력...</option>
+                  </select>
+                )}
+
                 <div className="w-[30%] flex items-center justify-center bg-gray-50 border border-gray-200 rounded-xl px-1 focus-within:border-indigo-400 focus-within:bg-white transition-colors">
                   <input type="number" min="1" max="20" className="w-full bg-transparent text-sm font-bold text-center focus:outline-none" value={formData.semester} onChange={(e) => setFormData({...formData, semester: e.target.value})} placeholder="현재" />
                   <span className="text-gray-400 font-bold text-sm">/</span>
@@ -231,7 +277,7 @@ export default function Profile({ userProfile = {}, setUserProfile, showAlert })
               </div>
             ) : (
               <p className="text-sm font-bold text-gray-800 py-2">
-                {userProfile.major} / {userProfile.degree} {userProfile.semester}/{userProfile.total_semesters || '4'}학기
+                {userProfile.major} / {userProfile.degree || 'M.S.'} {userProfile.semester}/{userProfile.total_semesters || '4'}학기
               </p>
             )}
           </div>
