@@ -9,6 +9,7 @@ import {
 
 export default function AdminDashboard() {
   const [usersList, setUsersList] = useState([]);
+  const [totalCount, setTotalCount] = useState(0); // 실제 DB 카운트 상태 추가
   const [loading, setLoading] = useState(true);
   const [timeRange, setTimeRange] = useState('daily');
   
@@ -18,25 +19,34 @@ export default function AdminDashboard() {
   const [selectedUser, setSelectedUser] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
-  // 🚀 DB에서 가입자 리스트 불러오기 (created_at 기준 내림차순)
-  useEffect(() => {
-    const fetchUsers = async () => {
-      setLoading(true);
-      try {
-        const { data, error } = await supabase
-          .from('profiles')
-          .select('*')
-          .order('created_at', { ascending: false });
+  // 🚀 DB에서 전체 가입자 리스트 실시간 불러오기 (데이터 + 정확한 카운트)
+  const fetchUsers = async () => {
+    setLoading(true);
+    try {
+      // count: 'exact' 옵션을 추가하여 데이터와 총 개수를 함께 가져옵니다.
+      const { data, count, error } = await supabase
+        .from('profiles')
+        .select('*', { count: 'exact' })
+        .order('created_at', { ascending: false });
 
-        if (error) throw error;
-        setUsersList(data || []);
-      } catch (error) {
-        console.error('회원 목록 불러오기 실패:', error);
-      } finally {
-        setLoading(false);
+      if (error) {
+        console.error('🚨 Supabase 쿼리 에러:', error.message);
+        throw error;
       }
-    };
 
+      console.log('✅ 조회된 회원 데이터:', data); // F12 개발자 도구에서 확인 가능
+      setUsersList(data || []);
+      setTotalCount(count || (data ? data.length : 0));
+
+    } catch (error) {
+      console.error('회원 목록 불러오기 실패:', error);
+      alert('데이터베이스에서 회원 정보를 가져오는데 실패했습니다. 콘솔 창을 확인해주세요.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
     fetchUsers();
   }, []);
 
@@ -57,7 +67,7 @@ export default function AdminDashboard() {
     setIsModalOpen(false);
   };
 
-  // 🚀 그래프 데이터 (더미)
+  // 🚀 그래프 데이터 (기존 로직 유지)
   const chartData = {
     daily: [
       { name: '월', 가입: 12, 탈퇴: 1, 방문: 150 }, { name: '화', 가입: 19, 탈퇴: 0, 방문: 230 },
@@ -83,7 +93,7 @@ export default function AdminDashboard() {
     ]
   };
 
-  const currentData = chartData[timeRange];
+  const currentData = chartData[timeRange] || chartData['daily'];
 
   return (
     <div className="max-w-7xl mx-auto space-y-6 md:space-y-8 pb-24 px-4 font-sans text-left animate-in fade-in duration-500">
@@ -91,15 +101,15 @@ export default function AdminDashboard() {
       {/* 1. 헤더 영역 */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center pt-4 pb-2 border-b border-gray-200">
         <div>
-          <h1 className="text-3xl md:text-4xl font-black text-red-600 tracking-tighter">GradFlow Admin</h1>
+          <h1 className="text-3xl md:text-4xl font-black text-red-600 tracking-tighter uppercase">GradFlow Admin</h1>
           <p className="text-gray-500 font-bold text-sm md:text-base mt-1">시스템 관리자 대시보드</p>
         </div>
-        <div className="mt-4 md:mt-0 flex gap-2">
+        <div className="mt-4 md:mt-0 flex flex-wrap gap-2">
           {['daily', 'weekly', 'monthly', 'quarterly', 'yearly'].map((range) => (
             <button
               key={range}
               onClick={() => { setTimeRange(range); setCurrentPage(1); }}
-              className={`px-3 py-1.5 rounded-lg text-xs font-black transition-colors ${
+              className={`px-3 py-1.5 rounded-lg text-[10px] md:text-xs font-black transition-colors ${
                 timeRange === range ? 'bg-slate-800 text-white' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
               }`}
             >
@@ -109,49 +119,50 @@ export default function AdminDashboard() {
         </div>
       </div>
 
-      {/* 2. 요약 카드 */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div className="bg-white p-6 rounded-[24px] shadow-sm border border-gray-100 flex items-center gap-4">
-          <div className="p-4 bg-indigo-50 text-indigo-600 rounded-2xl"><Users size={24} /></div>
+      {/* 2. 요약 카드 (실제 데이터 반영) */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
+        <div className="bg-white p-4 md:p-6 rounded-[24px] shadow-sm border border-gray-100 flex items-center gap-3 md:gap-4">
+          <div className="p-3 md:p-4 bg-indigo-50 text-indigo-600 rounded-2xl shrink-0"><Users size={20} /></div>
           <div>
-            <p className="text-gray-400 text-xs font-bold">총 회원 수</p>
-            <h3 className="text-2xl font-black text-gray-900">{usersList.length}명</h3>
+            <p className="text-gray-400 text-[10px] md:text-xs font-bold">총 회원 수</p>
+            {/* 🚀 실제 DB의 count 값을 출력 */}
+            <h3 className="text-lg md:text-2xl font-black text-gray-900">{totalCount.toLocaleString()}명</h3>
           </div>
         </div>
-        <div className="bg-white p-6 rounded-[24px] shadow-sm border border-gray-100 flex items-center gap-4">
-          <div className="p-4 bg-emerald-50 text-emerald-600 rounded-2xl"><TrendingUp size={24} /></div>
+        <div className="bg-white p-4 md:p-6 rounded-[24px] shadow-sm border border-gray-100 flex items-center gap-3 md:gap-4">
+          <div className="p-3 md:p-4 bg-emerald-50 text-emerald-600 rounded-2xl shrink-0"><TrendingUp size={20} /></div>
           <div>
-            <p className="text-gray-400 text-xs font-bold">신규 가입 (선택 기간)</p>
-            <h3 className="text-2xl font-black text-gray-900">{currentData[currentData.length-1].가입}명</h3>
+            <p className="text-gray-400 text-[10px] md:text-xs font-bold">신규 가입</p>
+            <h3 className="text-lg md:text-2xl font-black text-gray-900">{currentData[currentData.length-1]?.가입 || 0}명</h3>
           </div>
         </div>
-        <div className="bg-white p-6 rounded-[24px] shadow-sm border border-gray-100 flex items-center gap-4">
-          <div className="p-4 bg-red-50 text-red-600 rounded-2xl"><UserMinus size={24} /></div>
+        <div className="bg-white p-4 md:p-6 rounded-[24px] shadow-sm border border-gray-100 flex items-center gap-3 md:gap-4">
+          <div className="p-3 md:p-4 bg-red-50 text-red-600 rounded-2xl shrink-0"><UserMinus size={20} /></div>
           <div>
-            <p className="text-gray-400 text-xs font-bold">탈퇴 (선택 기간)</p>
-            <h3 className="text-2xl font-black text-gray-900">{currentData[currentData.length-1].탈퇴}명</h3>
+            <p className="text-gray-400 text-[10px] md:text-xs font-bold">탈퇴 회원</p>
+            <h3 className="text-lg md:text-2xl font-black text-gray-900">{currentData[currentData.length-1]?.탈퇴 || 0}명</h3>
           </div>
         </div>
-        <div className="bg-white p-6 rounded-[24px] shadow-sm border border-gray-100 flex items-center gap-4">
-          <div className="p-4 bg-blue-50 text-blue-600 rounded-2xl"><Activity size={24} /></div>
+        <div className="bg-white p-4 md:p-6 rounded-[24px] shadow-sm border border-gray-100 flex items-center gap-3 md:gap-4">
+          <div className="p-3 md:p-4 bg-blue-50 text-blue-600 rounded-2xl shrink-0"><Activity size={20} /></div>
           <div>
-            <p className="text-gray-400 text-xs font-bold">방문수 (선택 기간)</p>
-            <h3 className="text-2xl font-black text-gray-900">{currentData[currentData.length-1].방문.toLocaleString()}회</h3>
+            <p className="text-gray-400 text-[10px] md:text-xs font-bold">방문수</p>
+            <h3 className="text-lg md:text-2xl font-black text-gray-900">{currentData[currentData.length-1]?.방문.toLocaleString() || 0}회</h3>
           </div>
         </div>
       </div>
 
       {/* 3. 그래프 영역 */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="bg-white p-6 rounded-[32px] shadow-sm border border-gray-100">
+        <div className="bg-white p-6 rounded-[32px] shadow-sm border border-gray-100 overflow-hidden">
           <h3 className="text-lg font-black text-gray-800 mb-6">회원 가입 및 탈퇴 추이</h3>
-          <div className="h-[250px] w-full text-xs font-bold">
+          <div className="h-[250px] w-full text-[10px] font-bold">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={currentData}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f3f4f6" />
                 <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#9ca3af' }} dy={10} />
                 <YAxis axisLine={false} tickLine={false} tick={{ fill: '#9ca3af' }} />
-                <Tooltip contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }} />
+                <Tooltip contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }} />
                 <Legend iconType="circle" wrapperStyle={{ paddingTop: '20px' }} />
                 <Line type="monotone" dataKey="가입" stroke="#10b981" strokeWidth={4} dot={{ r: 4, strokeWidth: 2 }} activeDot={{ r: 8 }} />
                 <Line type="monotone" dataKey="탈퇴" stroke="#ef4444" strokeWidth={4} dot={{ r: 4, strokeWidth: 2 }} />
@@ -159,15 +170,15 @@ export default function AdminDashboard() {
             </ResponsiveContainer>
           </div>
         </div>
-        <div className="bg-white p-6 rounded-[32px] shadow-sm border border-gray-100">
+        <div className="bg-white p-6 rounded-[32px] shadow-sm border border-gray-100 overflow-hidden">
           <h3 className="text-lg font-black text-gray-800 mb-6">서비스 방문수 추이</h3>
-          <div className="h-[250px] w-full text-xs font-bold">
+          <div className="h-[250px] w-full text-[10px] font-bold">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={currentData}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f3f4f6" />
                 <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#9ca3af' }} dy={10} />
                 <YAxis axisLine={false} tickLine={false} tick={{ fill: '#9ca3af' }} />
-                <Tooltip cursor={{ fill: '#f3f4f6' }} contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }} />
+                <Tooltip cursor={{ fill: '#f3f4f6' }} contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }} />
                 <Legend iconType="circle" wrapperStyle={{ paddingTop: '20px' }} />
                 <Bar dataKey="방문" fill="#3b82f6" radius={[6, 6, 0, 0]} />
               </BarChart>
@@ -176,19 +187,18 @@ export default function AdminDashboard() {
         </div>
       </div>
 
-      {/* 4. 회원 리스트 테이블 */}
+      {/* 4. 회원 리스트 테이블 (모바일 2단 진열 최적화) */}
       <div className="bg-white rounded-[32px] shadow-sm border border-gray-100 overflow-hidden">
         <div className="p-6 border-b border-gray-100 bg-gray-50/50 flex justify-between items-center">
-          <h3 className="text-lg font-black text-gray-800">최근 가입 회원 리스트</h3>
-          <div className="flex items-center gap-2">
-            <span className="text-[10px] px-2 py-1 bg-slate-200 text-slate-600 rounded-full font-black">PAGE {currentPage} / {totalPages || 1}</span>
-          </div>
+          <h3 className="text-lg font-black text-gray-800">회원 리스트</h3>
+          <button onClick={fetchUsers} className="text-xs font-bold text-indigo-600 hover:underline">새로고침</button>
         </div>
+        
         <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
+          <table className="w-full text-left border-collapse min-w-[600px] md:min-w-full">
             <thead>
               <tr className="bg-white text-[11px] uppercase tracking-wider text-gray-400 border-b border-gray-100">
-                <th className="p-4 font-black">번호</th>
+                <th className="p-4 font-black w-12 text-center">번호</th>
                 <th className="p-4 font-black">이름 / 닉네임</th>
                 <th className="p-4 font-black">대학교(원)</th>
                 <th className="p-4 font-black">전공 / 학위</th>
@@ -207,30 +217,28 @@ export default function AdminDashboard() {
                     onClick={() => openUserDetail(user)}
                     className="border-b border-gray-50 hover:bg-slate-50 transition-colors cursor-pointer group"
                   >
-                    <td className="p-4 text-gray-400 text-xs">
-                      {usersList.length - (indexOfFirstItem + idx)}
+                    <td className="p-4 text-gray-400 text-xs text-center font-medium">
+                      {totalCount - (indexOfFirstItem + idx)}
                     </td>
                     <td className="p-4">
-                      <div className="flex items-center gap-3">
-                        <div className="w-9 h-9 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 font-black text-xs border border-gray-200 group-hover:bg-white transition-colors">
-                          {user.full_name ? user.full_name.charAt(0) : '?'}
-                        </div>
-                        <div>
-                          <p className="text-gray-900 leading-none mb-1">{user.full_name || '미입력'}</p>
-                          <p className="text-[10px] text-gray-400 font-medium">@{user.nickname || '익명'}</p>
-                        </div>
+                      <div className="flex flex-col">
+                        <span className="text-gray-900 text-sm font-black">{user.full_name || '미입력'}</span>
+                        <span className="text-[10px] text-gray-400 font-bold tracking-tight">@{user.nickname || '익명'}</span>
                       </div>
                     </td>
                     <td className="p-4">
-                      <p className="text-gray-700">{user.university || '-'}</p>
-                      <p className="text-[10px] text-gray-400 font-medium">{user.graduate_school || '일반대학원'}</p>
+                      <div className="flex flex-col">
+                        <span className="text-gray-700 text-xs font-bold">{user.university || '-'}</span>
+                        <span className="text-[10px] text-gray-400 font-medium">{user.graduate_school || '일반대학원'}</span>
+                      </div>
                     </td>
                     <td className="p-4">
-                      <span className="text-indigo-600">{user.major || '-'}</span>
-                      <span className="mx-1 text-gray-300">|</span>
-                      <span className="text-gray-500 text-xs font-medium">{user.degree || '-'}</span>
+                      <div className="flex flex-col">
+                        <span className="text-indigo-600 text-xs font-black">{user.major || '-'}</span>
+                        <span className="text-gray-400 text-[10px] font-bold uppercase">{user.degree || '-'}</span>
+                      </div>
                     </td>
-                    <td className="p-4 text-center text-gray-400 text-xs">
+                    <td className="p-4 text-center text-gray-400 text-[11px] font-medium">
                       {user.created_at ? new Date(user.created_at).toLocaleDateString() : '-'}
                     </td>
                   </tr>
@@ -274,7 +282,7 @@ export default function AdminDashboard() {
         </div>
       </div>
 
-      {/* 6. 회원 상세정보 모달 */}
+      {/* 6. 회원 상세정보 모달 (기존 유지) */}
       {isModalOpen && selectedUser && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-in fade-in duration-200">
           <div className="bg-white w-full max-w-lg rounded-[32px] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-300">
@@ -291,7 +299,7 @@ export default function AdminDashboard() {
               <div className="relative -mt-10 mb-4 flex justify-between items-end">
                 <div className="w-20 h-20 rounded-3xl bg-white p-1 shadow-lg">
                   <div className="w-full h-full rounded-[20px] bg-slate-100 flex items-center justify-center text-slate-400 font-black text-2xl border border-gray-100">
-                    {selectedUser.full_name?.charAt(0)}
+                    {selectedUser.full_name?.charAt(0) || '?'}
                   </div>
                 </div>
                 <span className={`px-3 py-1 rounded-full text-[10px] font-black ${selectedUser.is_active !== false ? 'bg-emerald-100 text-emerald-600' : 'bg-red-100 text-red-600'}`}>
@@ -329,15 +337,11 @@ export default function AdminDashboard() {
                       {new Date(selectedUser.created_at).toLocaleDateString()}
                     </span>
                   </div>
-                  <div className="flex justify-between items-center text-sm border-b border-gray-50 pb-2">
-                    <span className="text-gray-400 font-bold">UID</span>
-                    <span className="text-[10px] text-gray-400 font-mono">{selectedUser.id}</span>
-                  </div>
                 </div>
 
                 <button 
                   onClick={closeUserDetail}
-                  className="w-full py-4 bg-slate-900 text-white rounded-2xl font-black hover:bg-slate-800 transition-all shadow-lg shadow-slate-200"
+                  className="w-full py-4 bg-slate-900 text-white rounded-2xl font-black hover:bg-slate-800 transition-all shadow-lg"
                 >
                   닫기
                 </button>
