@@ -74,18 +74,19 @@ export default function Profile({ userProfile = {}, setUserProfile, showAlert })
     }
   };
 
-  const handleUpdateProfile = async () => {
+const handleUpdateProfile = async () => {
     setLoading(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
       
+      // 🚀 핵심 변경: update() -> upsert() 로 변경하고 id를 직접 넣어줍니다.
       const { error } = await supabase
         .from('profiles')
-        .update({
+        .upsert({
+          id: user.id, // 없으면 새로 만들어야 하므로 내 고유 id를 꼭 넣어줘야 합니다!
           ...formData,
           updated_at: new Date()
-        })
-        .eq('id', user.id);
+        });
 
       if (error) throw error;
 
