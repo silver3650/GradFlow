@@ -23,6 +23,17 @@ export default function CalendarView({ courses = [], coursework = [], setCoursew
   // 🚀 시험 키워드 정의
   const EXAM_KEYWORDS = ['시험', '고사', '중간', '기말', '테스트', 'Exam', 'Test'];
 
+  // 🚀 공휴일 데이터 정의 (고정 공휴일 + 2026년 기준 유동 공휴일)
+  const FIXED_HOLIDAYS = ['01-01', '03-01', '05-05', '06-06', '08-15', '10-03', '10-09', '12-25'];
+  const FLOATING_HOLIDAYS_2026 = ['2026-02-16', '2026-02-17', '2026-02-18', '2026-03-03', '2026-05-24', '2026-09-24', '2026-09-25', '2026-09-26'];
+
+  const isPublicHoliday = (date) => {
+    if (!date) return false;
+    const monthDay = `${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+    const yearMonthDay = `${date.getFullYear()}-${monthDay}`;
+    return FIXED_HOLIDAYS.includes(monthDay) || FLOATING_HOLIDAYS_2026.includes(yearMonthDay);
+  };
+
   const getLocalDateStr = (date) => {
     if (!date) return "";
     const d = new Date(date);
@@ -53,7 +64,6 @@ export default function CalendarView({ courses = [], coursework = [], setCoursew
       let type = 'assignment';
       let label = '과제';
       
-      // 🚀 과목이 지정된 경우 과목명 노출
       if (item.course_id) {
         const course = courses.find(c => c.id === item.course_id);
         if (isExam) {
@@ -144,13 +154,12 @@ export default function CalendarView({ courses = [], coursework = [], setCoursew
     try {
       const { data: { user } } = await supabase.auth.getUser();
       
-      // 🚀 제목을 분석하여 자동으로 카테고리 결정
       const isExam = EXAM_KEYWORDS.some(kw => assignForm.title.includes(kw));
       const isPersonal = assignForm.course_id === '';
       
       let finalCategory = 'assignment';
-      if (isPersonal) finalCategory = 'schedule'; // 🚀 개인 일정은 카운트 제외용 schedule로 저장
-      else if (isExam) finalCategory = 'exam'; // 🚀 시험 키워드 포함시 시험으로 저장
+      if (isPersonal) finalCategory = 'schedule'; 
+      else if (isExam) finalCategory = 'exam';
 
       const isoDueDate = new Date(assignForm.due_date).toISOString();
 
@@ -183,18 +192,6 @@ export default function CalendarView({ courses = [], coursework = [], setCoursew
     }
   };
 
-  const currentSubTasks = Array.isArray(assignForm.sub_tasks) ? assignForm.sub_tasks : [''];
-  const handleAddSubTask = () => setAssignForm({ ...assignForm, sub_tasks: [...currentSubTasks, ''] });
-  const handleSubTaskChange = (index, value) => {
-    const newTasks = [...currentSubTasks];
-    newTasks[index] = value;
-    setAssignForm({ ...assignForm, sub_tasks: newTasks });
-  };
-  const handleRemoveSubTask = (index) => {
-    const newTasks = currentSubTasks.filter((_, i) => i !== index);
-    setAssignForm({ ...assignForm, sub_tasks: newTasks.length ? newTasks : [''] });
-  };
-
   return (
     <div className="space-y-4 md:space-y-8 pb-24 text-left animate-in fade-in duration-500 px-1 font-sans">
       <div>
@@ -225,11 +222,24 @@ export default function CalendarView({ courses = [], coursework = [], setCoursew
               const hasCancel = dayEvents.some(e => e.type === 'cancellation');
               
               const isSelected = date && selectedDate.toDateString() === date.toDateString();
+              const isHoliday = date && (date.getDay() === 0 || isPublicHoliday(date));
+              const isSaturday = date && date.getDay() === 6;
+
+              // 🚀 미니 달력 날짜 색상 로직 (선택, 공휴일, 토요일 우선순위)
+              let dateClass = 'text-gray-300 hover:bg-white/10';
+              if (isSelected) {
+                dateClass = 'bg-indigo-500 shadow-[0_0_10px_rgba(99,102,241,0.5)] scale-110 text-white';
+              } else if (isHoliday) {
+                dateClass = 'text-red-400 hover:bg-white/10';
+              } else if (isSaturday) {
+                dateClass = 'text-blue-400 hover:bg-white/10';
+              }
+
               return (
                 <div key={i} className="flex flex-col items-center justify-center h-6 md:h-8 relative">
                   {date && (
                     <>
-                      <button onClick={() => setSelectedDate(date)} className={`w-5 h-5 md:w-7 md:h-7 rounded-full text-[9px] md:text-[12px] font-black flex items-center justify-center transition-all z-10 ${isSelected ? 'bg-indigo-500 shadow-[0_0_10px_rgba(99,102,241,0.5)] scale-110 text-white' : 'hover:bg-white/10 text-gray-300'}`}>
+                      <button onClick={() => setSelectedDate(date)} className={`w-5 h-5 md:w-7 md:h-7 rounded-full text-[9px] md:text-[12px] font-black flex items-center justify-center transition-all z-10 ${dateClass}`}>
                         {date.getDate()}
                       </button>
                       <div className="flex gap-[2px] mt-px h-[3px]">
@@ -296,15 +306,27 @@ export default function CalendarView({ courses = [], coursework = [], setCoursew
           </div>
         </div>
 
+        {/* 🚀 하단 메인 달력 요일 헤더 추가 */}
+        <div className="grid grid-cols-7 bg-gray-50/30 border-b border-gray-100">
+          {['일', '월', '화', '수', '목', '금', '토'].map((day, idx) => (
+            <div key={day} className={`py-3 text-center text-xs md:text-sm font-black ${idx === 0 ? 'text-red-500' : idx === 6 ? 'text-blue-500' : 'text-gray-500'}`}>
+              {day}
+            </div>
+          ))}
+        </div>
+
         <div className="grid grid-cols-7 bg-white">
           {calendarDays.map((date, index) => {
             const dateEvents = getEventsForDate(date);
             const isToday = date?.toDateString() === new Date().toDateString();
+            const isHoliday = date && (date.getDay() === 0 || isPublicHoliday(date));
+            const isSaturday = date && date.getDay() === 6;
+
             return (
               <div key={index} onClick={() => { if(date) { setSelectedDate(date); setShowDetailModal(true); } }} className={`h-24 md:h-36 border-r border-b border-gray-100 p-1 md:p-2 flex flex-col items-center transition-all ${date ? 'cursor-pointer hover:bg-indigo-50/40' : 'bg-gray-50/30'}`}>
                 {date && (
                   <>
-                    <span className={`text-xs md:text-[14px] font-black mb-1 md:mb-1.5 w-6 h-6 md:w-8 md:h-8 flex items-center justify-center rounded-full transition-all mt-1 ${isToday ? 'bg-indigo-600 text-white shadow-md' : date.getDay() === 0 ? 'text-red-500' : date.getDay() === 6 ? 'text-blue-500' : 'text-gray-700'}`}>
+                    <span className={`text-xs md:text-[14px] font-black mb-1 md:mb-1.5 w-6 h-6 md:w-8 md:h-8 flex items-center justify-center rounded-full transition-all mt-1 ${isToday ? 'bg-indigo-600 text-white shadow-md' : isHoliday ? 'text-red-500' : isSaturday ? 'text-blue-500' : 'text-gray-700'}`}>
                       {date.getDate()}
                     </span>
                     <div className="w-full flex flex-col space-y-[2px] overflow-hidden px-1 text-left">
@@ -390,7 +412,6 @@ export default function CalendarView({ courses = [], coursework = [], setCoursew
                 <label className="text-[13px] font-black text-gray-700 ml-1">메모 및 내용 (선택)</label>
                 <textarea rows={3} placeholder="상세 내용을 입력하세요" className="w-full px-4 py-3.5 bg-gray-50 border border-transparent focus:border-[#6b62ff] focus:bg-white rounded-[14px] outline-none text-sm text-gray-800 placeholder-gray-400 resize-none font-bold transition-all" value={assignForm.description} onChange={e => setAssignForm({...assignForm, description: e.target.value})} />
               </div>
-              {/* 세부 일정 쪼개기 생략... (이전 코드 유지) */}
             </div>
             <div className="p-6 border-t border-gray-100 bg-white flex justify-end gap-3 shrink-0">
               {editingAssignId && (
