@@ -2,11 +2,34 @@
 <html lang="ko">
   <head>
     <meta charset="UTF-8" />
-    <!-- 🚀 GradFlow 학사모 파비콘 적용 -->
-    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='25' fill='%236366f1'/%3E%3Cpath d='M20 40l30-15 30 15-30 15z' fill='white'/%3E%3Cpath d='M30 45v15c0 3 4 6 20 6s20-3 20-6v-15' fill='none' stroke='white' stroke-width='6'/%3E%3Cpath d='M80 40v20' fill='none' stroke='white' stroke-width='6'/%3E%3C/svg%3E" />
     
+    <!-- 🚀 데스크톱 브라우저 탭용 파비콘 (기존 유지) -->
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='25' fill='%236366f1'/%3E%3Cpath d='M20 40l30-15 30 15-30 15z' fill='white'/%3E%3Cpath d='M30 45v15c0 3 4 6 20 6s20-3 20-6v-15' fill='none' stroke='white' stroke-width='6'/%3E%3Cpath d='M80 40v20' fill='none' stroke='white' stroke-width='6'/%3E%3C/svg%3E" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0">
     <title>GradFlow - 대학원생 연구 일정 관리</title>
+
+    <!-- ========================================== -->
+    <!-- 🚀 PWA (Progressive Web App) 필수 설정 시작 -->
+    <!-- ========================================== -->
+    
+    <!-- 1. Web App Manifest 연결 -->
+    <link rel="manifest" href="/manifest.json" />
+    
+    <!-- 2. 브라우저 및 앱 테마 색상 설정 (GradFlow 기본 컬러) -->
+    <meta name="theme-color" content="#4b44e6" />
+    
+    <!-- 3. iOS(아이폰 Safari) 전용 PWA 설정 -->
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="GradFlow" />
+    
+    <!-- 4. iOS 바탕화면 설치 시 보여질 아이콘 연결 -->
+    <link rel="apple-touch-icon" href="/icons/icon-192x192.png" />
+    
+    <!-- ========================================== -->
+    <!-- PWA 설정 끝 -->
+    <!-- ========================================== -->
+
   </head>
   <body>
     <div id="root"></div>
