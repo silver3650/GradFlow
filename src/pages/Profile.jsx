@@ -5,7 +5,7 @@ import {
 } from 'lucide-react';
 import { supabase } from '../supabaseClient';
 
-// 🚀 setActiveTab 인자를 추가로 받아옵니다.
+// 🚀 setActiveTab 인자를 받아 관리자 페이지로의 화면 전환을 처리합니다.
 export default function Profile({ userProfile = {}, setUserProfile, showAlert, setActiveTab }) {
   const [isEditing, setIsEditing] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -13,6 +13,7 @@ export default function Profile({ userProfile = {}, setUserProfile, showAlert, s
   const [isLmsLinked, setIsLmsLinked] = useState(false);
   const [isCustomDegree, setIsCustomDegree] = useState(false);
   
+  // 유저 이메일 상태
   const [userEmail, setUserEmail] = useState(userProfile.email || '');
 
   const [formData, setFormData] = useState({
@@ -28,6 +29,7 @@ export default function Profile({ userProfile = {}, setUserProfile, showAlert, s
   });
 
   useEffect(() => {
+    // 1. 프로필 데이터 초기화
     const initialDegree = userProfile.degree || 'M.S.';
     setFormData({
       nickname: userProfile.nickname || '',
@@ -41,6 +43,7 @@ export default function Profile({ userProfile = {}, setUserProfile, showAlert, s
       bio: userProfile.bio || ''
     });
 
+    // 2. 직접 입력 학위 여부 판단
     const commonDegrees = ['M.S.', 'M.A.', 'M.B.A.', 'M.Div.', 'Ph.D.', 'M.S./Ph.D.'];
     if (initialDegree && !commonDegrees.includes(initialDegree)) {
       setIsCustomDegree(true);
@@ -48,9 +51,11 @@ export default function Profile({ userProfile = {}, setUserProfile, showAlert, s
       setIsCustomDegree(false);
     }
 
+    // 3. 구글 연동 확인
     const token = localStorage.getItem('google_provider_token');
     setIsGoogleLinked(!!token);
 
+    // 4. 이메일 정보 보완
     const fetchAuthUser = async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
@@ -75,12 +80,13 @@ export default function Profile({ userProfile = {}, setUserProfile, showAlert, s
     try {
       const { data: { user } } = await supabase.auth.getUser();
       
+      // 🚀 upsert를 사용하여 데이터가 없으면 생성, 있으면 수정을 자동으로 처리
       const { error } = await supabase
         .from('profiles')
         .upsert({
           id: user.id,
           ...formData,
-          updated_at: new Date()
+          updated_at: new Date().toISOString()
         });
 
       if (error) throw error;
@@ -125,33 +131,34 @@ export default function Profile({ userProfile = {}, setUserProfile, showAlert, s
   return (
     <div className="max-w-5xl mx-auto space-y-6 animate-in fade-in duration-500 pb-24 text-left font-sans px-4">
       
+      {/* 타이틀 */}
       <div className="pt-4 pb-2">
         <h1 className="text-3xl font-black text-gray-900 mb-2 tracking-tighter">MY PROFILE</h1>
         <p className="text-gray-500 font-bold text-sm md:text-base">회원 정보 및 외부 서비스 연동 설정을 관리합니다.</p>
       </div>
 
-      {/* 🚀 관리자 전용 배너: 버튼에 setActiveTab('admin') 연결 */}
+      {/* 🚀 관리자 배너: setActiveTab을 사용하여 관리자 페이지로 이동 */}
       {userProfile.is_admin && (
-        <div className="bg-slate-900 text-white rounded-2xl p-4 sm:p-5 shadow-lg flex flex-col sm:flex-row justify-between items-center gap-4">
+        <div className="bg-slate-900 text-white rounded-2xl p-4 sm:p-5 shadow-lg flex flex-col sm:flex-row justify-between items-center gap-4 border-l-8 border-red-600">
           <div className="flex items-center gap-3">
-            <div className="p-2 bg-slate-800 rounded-full text-indigo-400">
+            <div className="p-2 bg-slate-800 rounded-full text-red-500">
               <Shield size={20} />
             </div>
             <div>
-              <h3 className="font-bold text-sm sm:text-base">관리자 계정으로 접속 중입니다</h3>
-              <p className="text-slate-400 text-xs">시스템 설정 및 전체 회원 관리를 할 수 있습니다.</p>
+              <h3 className="font-bold text-sm sm:text-base text-white">관리자 전용 메뉴</h3>
+              <p className="text-slate-400 text-xs font-medium">가입 통계 및 회원 리스트를 관리할 수 있습니다.</p>
             </div>
           </div>
           <button 
-            onClick={() => setActiveTab('admin')} // 👈 클릭 시 관리자 탭으로 이동
-            className="w-full sm:w-auto px-5 py-2.5 bg-indigo-500 hover:bg-indigo-600 rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition-colors"
+            onClick={() => setActiveTab('admin')} 
+            className="w-full sm:w-auto px-5 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-xl text-sm font-black flex items-center justify-center gap-2 transition-all shadow-md"
           >
             관리자 페이지로 이동 <ArrowRight size={16} />
           </button>
         </div>
       )}
 
-      {/* 헤더 및 컴팩트 프로필 카드 */}
+      {/* 상단 프로필 요약 카드 */}
       <div className="bg-white rounded-[24px] border border-gray-100 p-6 md:p-8 shadow-sm relative overflow-hidden">
         <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-indigo-500 to-purple-500"></div>
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
@@ -167,9 +174,7 @@ export default function Profile({ userProfile = {}, setUserProfile, showAlert, s
                   <ShieldCheck size={12} className="mr-1" /> 인증됨
                 </span>
               </div>
-              <p className="text-sm font-medium text-gray-500 mb-2">
-                {userEmail || '이메일 정보 없음'}
-              </p>
+              <p className="text-sm font-medium text-gray-500 mb-2">{userEmail || '이메일 정보 없음'}</p>
               <p className="text-gray-600 font-bold text-sm md:text-base mb-1">
                 {userProfile.university} {userProfile.graduate_school} • {userProfile.major}
               </p>
@@ -196,7 +201,7 @@ export default function Profile({ userProfile = {}, setUserProfile, showAlert, s
         </div>
       </div>
 
-      {/* 정보 수정 폼 영역 */}
+      {/* 상세 학업 정보 폼 */}
       <div className="bg-white rounded-[24px] border border-gray-100 p-6 md:p-8 shadow-sm">
         <h3 className="text-lg font-black text-gray-800 mb-5 flex items-center">
           <GraduationCap className="mr-2 text-indigo-500" size={20} /> 상세 학업 정보
@@ -316,7 +321,7 @@ export default function Profile({ userProfile = {}, setUserProfile, showAlert, s
         )}
       </div>
 
-      {/* 외부 서비스 연동 */}
+      {/* 외부 연동 */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className={`flex justify-between items-center p-5 rounded-[24px] border transition-all ${isGoogleLinked ? 'bg-indigo-50 border-indigo-100' : 'bg-white border-gray-100 shadow-sm'}`}>
           <div className="flex items-center gap-3">
@@ -330,10 +335,7 @@ export default function Profile({ userProfile = {}, setUserProfile, showAlert, s
               </p>
             </div>
           </div>
-          <button 
-            onClick={toggleGoogle}
-            className={`text-xs font-bold px-4 py-2 rounded-lg transition-all ${isGoogleLinked ? 'bg-white text-gray-500 border border-gray-200 hover:text-red-500' : 'bg-gray-900 text-white'}`}
-          >
+          <button onClick={toggleGoogle} className={`text-xs font-bold px-4 py-2 rounded-lg transition-all ${isGoogleLinked ? 'bg-white text-gray-500 border border-gray-200 hover:text-red-500' : 'bg-gray-900 text-white'}`}>
             {isGoogleLinked ? '연동 해제' : '연동하기'}
           </button>
         </div>
@@ -350,10 +352,7 @@ export default function Profile({ userProfile = {}, setUserProfile, showAlert, s
               </p>
             </div>
           </div>
-          <button 
-            onClick={toggleLms}
-            className={`text-xs font-bold px-4 py-2 rounded-lg transition-all ${isLmsLinked ? 'bg-white text-gray-500 border border-gray-200 hover:text-red-500' : 'bg-gray-900 text-white'}`}
-          >
+          <button onClick={toggleLms} className={`text-xs font-bold px-4 py-2 rounded-lg transition-all ${isLmsLinked ? 'bg-white text-gray-500 border border-gray-200 hover:text-red-500' : 'bg-gray-900 text-white'}`}>
             {isLmsLinked ? '연동 해제' : '연동하기'}
           </button>
         </div>
