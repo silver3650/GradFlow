@@ -3,7 +3,7 @@ import { supabase } from '../supabaseClient';
 import { 
   Bell, ShieldCheck, ChevronRight, FileText, 
   Calendar as CalIcon, Settings, Clock, Loader2, Sparkles, X,
-  GraduationCap // 🚀 구글 클래스룸 느낌을 위한 학사모 아이콘 추가
+  GraduationCap
 } from 'lucide-react';
 import { fetchGoogleClassroomAssignments } from '../utils/classroomAPI';
 import { analyzeAssignmentWithAI } from '../utils/geminiAPI';
@@ -17,11 +17,13 @@ export default function Dashboard({ courses = [], coursework = [], setCoursework
   const [aiResultModal, setAiResultModal] = useState(false);
   const [analyzedData, setAnalyzedData] = useState(null);
 
-  // 🚀 동기화 및 페이지 이동 함수
-  const handleClassroomSync = async () => {
+  // 🚀 핵심 수정: 자동 감지 및 AI 분석 로직 통합
+  const handleClassroomSync = async (isAutoSync = false) => {
     if (!providerToken) {
-      alert("구글 연동이 필요합니다. 설정 메뉴에서 구글 계정으로 다시 로그인해 주세요.");
-      setActiveTab('profile'); // 연동 안 되어 있으면 프로필(설정) 탭으로 이동
+      if (!isAutoSync) {
+        alert("구글 연동이 필요합니다. 설정 메뉴에서 구글 계정으로 다시 로그인해 주세요.");
+        setActiveTab('profile');
+      }
       return;
     }
 
@@ -30,33 +32,53 @@ export default function Dashboard({ courses = [], coursework = [], setCoursework
       const tasks = await fetchGoogleClassroomAssignments(providerToken);
       setClassroomTasks(tasks);
       
-      // 동기화 후 사용자가 결과를 바로 볼 수 있도록 '과제 확인' 탭으로 이동
-      setTimeout(() => {
-        setActiveTab('coursework');
-      }, 500); 
+      // 🚀 기존 등록된 과제들과 비교하여 '새로운 과제'만 필터링 (제목 기준)
+      const newTasks = tasks.filter(task => !coursework.some(cw => cw.title === task.title));
+      
+      if (newTasks.length > 0) {
+        // 가장 최근의 새로운 과제 1개 처리
+        const latestNewTask = newTasks[0]; 
+        
+        // 1. 사용자에게 알림
+        alert(`🔔 구글 클래스룸에 새로운 과제가 감지되었습니다!\n\n[ ${latestNewTask.title} ]\nAI가 일정을 분석하여 과제함에 추가할 수 있도록 준비합니다.`);
+        
+        // 2. AI 자동 분석 실행
+        setIsAnalyzing(true);
+        const result = await analyzeAssignmentWithAI(latestNewTask);
+        setIsAnalyzing(false);
+        
+        // 3. 분석 결과 모달 자동 오픈
+        if (result) {
+          setAnalyzedData(result);
+          setAiResultModal(true); 
+        }
+      } else {
+        if (!isAutoSync) {
+          alert("현재 동기화할 새로운 클래스룸 과제가 없습니다.");
+          setTimeout(() => setActiveTab('coursework'), 500);
+        }
+      }
       
     } catch (error) {
       console.error("Sync Error:", error);
-      alert("동기화 중 오류가 발생했습니다. 권한 설정을 확인해 주세요.");
+      if (!isAutoSync) alert("동기화 중 오류가 발생했습니다. 권한 설정을 확인해 주세요.");
     } finally {
       setIsSyncing(false);
     }
   };
 
+  // 컴포넌트 마운트 시 자동 동기화 시도
   useEffect(() => {
-    if (providerToken) {
-      const getGoogleTasks = async () => {
-        setIsSyncing(true);
-        const tasks = await fetchGoogleClassroomAssignments(providerToken);
-        setClassroomTasks(tasks);
-        setIsSyncing(false);
-      };
-      getGoogleTasks();
+    if (providerToken && coursework) {
+      handleClassroomSync(true); // isAutoSync = true 로 조용히 백그라운드 체크
     }
-  }, [providerToken]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [providerToken]); 
+  // coursework를 의존성 배열에 넣으면 무한 루프 위험이 있어 제외합니다.
 
   const latestGoogleTask = classroomTasks.length > 0 ? classroomTasks[0] : null;
-  const hasNewClassroomTask = !!latestGoogleTask;
+  const isLatestTaskAlreadyAdded = latestGoogleTask && coursework.some(cw => cw.title === latestGoogleTask.title);
+  const hasNewClassroomTask = latestGoogleTask && !isLatestTaskAlreadyAdded;
 
   const imminentTask = [...coursework]
     .filter(a => !a.is_completed && a.course_id && (a.category === 'assignment' || !a.category))
@@ -80,21 +102,16 @@ export default function Dashboard({ courses = [], coursework = [], setCoursework
     return `${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')}(${week[d.getDay()]}) ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
   };
 
-  // 🚀 퀵 액션 설정 (아이콘 및 핸들러 수정)
   const quickActions = [
     { label: '과제 확인', onClick: () => setActiveTab('coursework'), icon: <FileText className="text-blue-500" /> },
     { label: '일정 확인', onClick: () => setActiveTab('calendar'), icon: <CalIcon className="text-indigo-500" /> },
-    { 
-      label: '구글 클래스룸 연동', 
-      onClick: handleClassroomSync, 
-      // 구글 클래스룸 고유의 초록색 테마 적용
-      icon: <GraduationCap className={isSyncing ? "text-emerald-500 animate-bounce" : "text-emerald-600"} /> 
-    },
+    { label: '구글 동기화', onClick: () => handleClassroomSync(false), icon: <GraduationCap className={isSyncing ? "text-emerald-500 animate-bounce" : "text-emerald-600"} /> },
     { label: '설정 관리', onClick: () => setActiveTab('profile'), icon: <Settings className="text-orange-400" /> }
   ];
 
+  // 수동으로 버튼을 눌렀을 때의 동작
   const handleAiSplit = async () => {
-    if (!latestGoogleTask) return;
+    if (!latestGoogleTask || isLatestTaskAlreadyAdded) return;
     setIsAnalyzing(true);
     const result = await analyzeAssignmentWithAI(latestGoogleTask);
     setIsAnalyzing(false);
@@ -166,15 +183,17 @@ export default function Dashboard({ courses = [], coursework = [], setCoursework
               Google Classroom {isSyncing && <Loader2 size={10} className="animate-spin inline"/>}
             </p>
             {isAnalyzing ? (
-              <p className="font-bold text-gray-800 text-xs md:text-sm truncate animate-pulse">Gemini AI가 과제를 분석하고 있습니다...</p>
+              <p className="font-bold text-gray-800 text-xs md:text-sm truncate animate-pulse">Gemini AI가 신규 과제를 분석하고 있습니다...</p>
             ) : isSyncing ? (
               <p className="font-bold text-gray-800 text-xs md:text-sm truncate">클래스룸 데이터를 동기화 중입니다...</p>
             ) : !providerToken ? (
               <p className="font-bold text-gray-500 text-xs md:text-sm truncate">설정에서 구글 계정 연동이 필요합니다.</p>
-            ) : latestGoogleTask ? (
+            ) : hasNewClassroomTask ? (
               <p className="font-bold text-gray-800 text-xs md:text-sm truncate">
-                새로운 과제: <span className="text-blue-700">{latestGoogleTask.title}</span> 
+                미등록 신규 과제: <span className="text-blue-700">{latestGoogleTask.title}</span> 
               </p>
+            ) : latestGoogleTask ? (
+              <p className="font-bold text-gray-500 text-xs md:text-sm truncate">모든 과제가 이미 등록되어 있습니다.</p>
             ) : (
               <p className="font-bold text-gray-600 text-xs md:text-sm truncate">새로 등록된 클래스룸 과제가 없습니다.</p>
             )}
@@ -189,7 +208,7 @@ export default function Dashboard({ courses = [], coursework = [], setCoursework
           `}
         >
           {isAnalyzing ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />}
-          {hasNewClassroomTask ? 'AI로 일정 쪼개기' : '내역 확인'}
+          {hasNewClassroomTask ? 'AI로 일정 쪼개기' : '완료됨'}
         </button>
       </div>
 
@@ -212,7 +231,7 @@ export default function Dashboard({ courses = [], coursework = [], setCoursework
                 <span className="bg-red-500 text-white px-2.5 py-1 rounded-md text-[10px] md:text-[11px] font-black uppercase tracking-tighter">
                   {calculateDDay(imminentTask.due_date)}
                 </span>
-                <span className="text-red-400 text-[11px] md:text-xs font-black">
+                <span className="text-red-400 text-sm md:text-base font-black">
                   {formatImminentDate(imminentTask.due_date)} 마감
                 </span>
               </div>
@@ -262,7 +281,8 @@ export default function Dashboard({ courses = [], coursework = [], setCoursework
                 <p className="text-sm font-bold text-gray-700 leading-relaxed">{analyzedData.description}</p>
               </div>
               <div>
-                <span className="text-[11px] font-black text-gray-500 block mb-3 flex items-center gap-1"><Clock size={12}/> 자동 생성된 세부 일정</span>
+                {/* 🚀 CSS 충돌(block, flex 중복) 수정됨 */}
+                <span className="text-[11px] font-black text-gray-500 mb-3 flex items-center gap-1"><Clock size={12}/> 자동 생성된 세부 일정</span>
                 <div className="space-y-2">
                   {analyzedData.subTasks.map((task, idx) => (
                     <div key={idx} className="flex gap-3 bg-white border border-gray-100 p-3 rounded-xl shadow-sm">

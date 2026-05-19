@@ -100,10 +100,13 @@ export default function Coursework({ courses = [], setCourses, coursework = [], 
     if (!res.error) { setCoursework(editingAssignId ? safeCoursework.map(a => a.id === editingAssignId ? res.data[0] : a) : [...safeCoursework, res.data[0]]); setShowAssignModal(false); }
   };
 
+  // 🚀 수정된 부분: 요일을 포함하도록 포맷 변경 (예: 6/13(월) 23:59)
   const formatDisplayDate = (isoString) => {
     if (!isoString) return '';
     const d = new Date(isoString);
-    return `${d.getMonth() + 1}/${d.getDate()} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+    const days = ['일', '월', '화', '수', '목', '금', '토'];
+    const dayName = days[d.getDay()];
+    return `${d.getMonth() + 1}/${d.getDate()}(${dayName}) ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
   };
 
   return (
@@ -234,7 +237,22 @@ export default function Coursework({ courses = [], setCourses, coursework = [], 
                         <div className="flex items-center gap-2.5">
                           {/* 🚀 상세 보기 안내 텍스트 추가 */}
                           <span className="text-[10px] text-indigo-400 font-black animate-pulse">상세 내용 확인</span>
-                          <button onClick={async (e) => { e.stopPropagation(); const { data } = await supabase.from('assignments').update({ is_completed: !a.is_completed }).eq('id', a.id).select(); setCoursework(safeCoursework.map(item => item.id === a.id ? data[0] : item)); }} className={`w-9 h-5 rounded-full p-0.5 transition-all ${a.is_completed ? 'bg-[#6b62ff]' : 'bg-gray-300'}`}><div className={`bg-white w-4 h-4 rounded-full shadow-sm transform transition-all ${a.is_completed ? 'translate-x-4' : ''}`} /></button>
+                          
+                          {/* 🚀 수정된 부분: 토글 버튼을 직관적인 버튼 형태로 변경 */}
+                          <button 
+                            onClick={async (e) => { 
+                              e.stopPropagation(); 
+                              const { data } = await supabase.from('assignments').update({ is_completed: !a.is_completed }).eq('id', a.id).select(); 
+                              setCoursework(safeCoursework.map(item => item.id === a.id ? data[0] : item)); 
+                            }} 
+                            className={`px-3 py-1.5 rounded-lg text-[11px] font-black transition-all shadow-sm flex items-center gap-1 ${
+                              a.is_completed 
+                                ? 'bg-[#6b62ff] text-white hover:bg-indigo-600' 
+                                : 'bg-white border border-gray-200 text-gray-700 hover:bg-gray-50'
+                            }`}
+                          >
+                            {a.is_completed ? <><CheckCircle2 size={14} /> 완료됨</> : '완료하기'}
+                          </button>
                         </div>
                       </div>
                     </div>
