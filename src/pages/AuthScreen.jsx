@@ -74,7 +74,7 @@ const AuthScreen = ({ showAlert }) => {
     }
   };
 
-  // 3. 인증 메일 발송 요청 (실제 Supabase 연동)
+  // 3. 인증 메일 발송 요청
   const handleRequestVerification = async () => {
     if (!isEduEmail(form.email)) return showAlert('대학원생 인증을 위해 .ac.kr 또는 .edu 계정만 사용 가능합니다.');
     
@@ -93,9 +93,9 @@ const AuthScreen = ({ showAlert }) => {
     setAuthMode('signup_verify');
   };
 
-  // 4. 인증번호 확인 (실제 Supabase 연동)
+  // 4. 인증번호 확인 (8자리 적용)
   const handleVerifyCode = async () => {
-    if (otpCode.length !== 6) return showAlert('6자리 인증번호를 입력해 주세요.');
+    if (otpCode.length !== 8) return showAlert('8자리 인증번호를 입력해 주세요.');
 
     setLoading(true);
     const { error } = await supabase.auth.verifyOtp({
@@ -149,14 +149,13 @@ const AuthScreen = ({ showAlert }) => {
         showAlert('프로필 저장 중 오류: ' + profileError.message);
       } else {
         showAlert('🎉 가입이 완료되었습니다! 환영합니다.');
-        // 상태 변경으로 자동 라우팅 처리됨
       }
     }
     setLoading(false);
   };
 
   return (
-    <div className="w-full max-w-[400px] bg-white rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.12)] overflow-hidden font-sans">
+    <div className="w-full max-w-[400px] bg-white rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.12)] overflow-hidden font-sans mx-auto">
       
       {/* 🌑 상단 헤더 영역 */}
       <div className="bg-[#151b2b] pt-10 pb-8 text-center text-white">
@@ -172,6 +171,7 @@ const AuthScreen = ({ showAlert }) => {
         {/* ==================== [로그인 모드] ==================== */}
         {authMode === 'login' && (
           <div className="space-y-6 animate-in fade-in">
+            {/* 로그인 입력창 (아이콘 없는 심플 레이아웃 복원) */}
             <div className="space-y-3">
               <input type="email" placeholder="이메일 주소" className="w-full px-4 py-3.5 bg-gray-50 border border-gray-200 focus:border-[#6b62ff] rounded-xl outline-none text-sm transition-all" value={form.email} onChange={e => setForm({...form, email: e.target.value})} />
               <input type="password" placeholder="비밀번호" className="w-full px-4 py-3.5 bg-gray-50 border border-gray-200 focus:border-[#6b62ff] rounded-xl outline-none text-sm transition-all" value={form.password} onChange={e => setForm({...form, password: e.target.value})} onKeyPress={e => e.key === 'Enter' && handleLogin()} />
@@ -181,13 +181,14 @@ const AuthScreen = ({ showAlert }) => {
               {loading ? '로그인 중...' : '로그인'}
             </button>
 
-            {/* 🔥 구분선 및 구글 로그인 버튼 */}
+            {/* 구분선 */}
             <div className="relative flex items-center py-2">
               <div className="flex-grow border-t border-gray-100"></div>
               <span className="flex-shrink-0 mx-4 text-gray-400 text-[11px] font-bold">또는</span>
               <div className="flex-grow border-t border-gray-100"></div>
             </div>
 
+            {/* 구글 로그인 버튼 복원 */}
             <button 
               onClick={handleGoogleLogin} 
               disabled={loading} 
@@ -242,7 +243,7 @@ const AuthScreen = ({ showAlert }) => {
           </div>
         )}
 
-        {/* ==================== [가입 2단계: 인증번호 확인] ==================== */}
+        {/* ==================== [가입 2단계: 인증번호 확인 (8자리 적용)] ==================== */}
         {authMode === 'signup_verify' && (
           <div className="space-y-6 animate-in fade-in slide-in-from-right-4">
             <div className="space-y-2">
@@ -264,7 +265,8 @@ const AuthScreen = ({ showAlert }) => {
               <div className="flex gap-2">
                 <div className="relative flex-1">
                   <ShieldCheck className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
-                  <input type="text" maxLength={6} placeholder="인증번호 6자리" className="w-full pl-10 pr-4 py-3 bg-white border border-gray-200 focus:border-[#6b62ff] rounded-xl outline-none text-sm transition-all tracking-[0.2em]" value={otpCode} onChange={e => setOtpCode(e.target.value.replace(/[^0-9]/g, ''))} />
+                  {/* 입력창 8자리 제한 및 텍스트 수정 */}
+                  <input type="text" maxLength={8} placeholder="인증번호 8자리" className="w-full pl-10 pr-4 py-3 bg-white border border-gray-200 focus:border-[#6b62ff] rounded-xl outline-none text-sm transition-all tracking-[0.2em]" value={otpCode} onChange={e => setOtpCode(e.target.value.replace(/[^0-9]/g, ''))} />
                 </div>
                 <button onClick={handleVerifyCode} disabled={loading} className="bg-[#4b44e6] text-white px-6 rounded-xl font-bold text-[13px] hover:bg-indigo-700 transition-colors whitespace-nowrap shadow-sm disabled:opacity-50">
                   {loading ? '확인중' : '확인'}
@@ -289,7 +291,7 @@ const AuthScreen = ({ showAlert }) => {
               <CheckCircle size={16} className="mr-2" /> 대학원생 인증이 완료되었습니다.
             </div>
 
-            {/* 본명 & 닉네임 (모바일 대응 flex-col sm:flex-row 적용) */}
+            {/* 본명 & 닉네임 */}
             <div className="flex flex-col sm:flex-row gap-3">
               <div className="space-y-1.5 flex-1">
                 <label className="text-[12px] font-bold text-gray-700 ml-1">본명</label>
@@ -313,7 +315,7 @@ const AuthScreen = ({ showAlert }) => {
               </div>
             </div>
 
-            {/* 소속 정보 (모바일 대응 flex-col sm:flex-row 적용) */}
+            {/* 소속 정보 */}
             <div className="pt-2">
               <label className="text-[12px] font-bold text-gray-700 ml-1 mb-1.5 block">소속 정보</label>
               <div className="space-y-2 border border-gray-100 p-3 rounded-xl bg-gray-50/50">
