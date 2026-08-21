@@ -17,7 +17,6 @@ export default function Coursework({ courses = [], setCourses, coursework = [], 
   const [editingCourseId, setEditingCourseId] = useState(null);
   const [editingAssignId, setEditingAssignId] = useState(null);
 
-  // 🚀 학점(credits) 초기값 3 추가됨
   const initialCourseForm = { 
     name: '', professor: '', day_of_week: '월요일', 
     status: 'in_progress', start_date: '2026-03-02', end_date: '2026-06-20',
@@ -142,9 +141,9 @@ export default function Coursework({ courses = [], setCourses, coursework = [], 
               .sort((a,b) => getDDayValue(a.due_date) - getDDayValue(b.due_date));
             return (
               <div key={c.id} onClick={() => document.getElementById(`course-${c.id}`)?.scrollIntoView({behavior:'smooth'})} className="bg-indigo-50/40 p-2.5 md:p-4 rounded-[16px] border border-indigo-100/50 cursor-pointer min-w-0 shadow-sm hover:border-[#6b62ff] transition-all">
-                {/* 🚀 요약 카드: 학점 표기 추가 */}
+                {/* 🚀 수정된 부분: 요약 카드에서는 학점 표기를 빼고 과목명과 과제 수(숫자)만 표시하여 텍스트가 잘리지 않도록 함 */}
                 <span className="font-black text-gray-900 text-sm md:text-xl block truncate mb-2 leading-tight">
-                  {c.name} <span className="text-xs font-bold text-gray-500 ml-1">{c.credits || 3}학점</span> <span className="text-[#6b62ff] text-xs md:text-base ml-1">({tasks.length})</span>
+                  {c.name} <span className="text-[#6b62ff] text-xs md:text-base ml-1">({tasks.length})</span>
                 </span>
                 <div className="space-y-1.5">
                   {tasks.slice(0, 1).map(task => (
@@ -185,7 +184,7 @@ export default function Coursework({ courses = [], setCourses, coursework = [], 
                 <div className="min-w-0 pr-4 flex items-start gap-3">
                   <BookOpen size={18} className="text-indigo-300 mt-1 shrink-0" />
                   <div className="flex flex-col">
-                    {/* 🚀 리스트 헤더: 학점 표기 추가 */}
+                    {/* 🚀 아래의 상세 리스트에서는 학점 표기를 그대로 유지합니다 */}
                     <h3 className="text-base md:text-lg font-black truncate leading-tight">
                       {course.name} <span className="text-xs md:text-sm font-bold text-indigo-300 ml-1">{course.credits || 3}학점</span>
                     </h3>
@@ -266,7 +265,6 @@ export default function Coursework({ courses = [], setCourses, coursework = [], 
         })}
       </div>
 
-      {/* 모달: 과목 설정 */}
       {showCourseModal && (
         <div className="fixed inset-0 bg-black/50 z-[2000] flex items-center justify-center p-4 backdrop-blur-sm">
           <form onSubmit={handleSaveCourse} className="bg-white w-full max-w-[420px] rounded-[32px] p-8 space-y-5 animate-in zoom-in-95 duration-200 text-left">
@@ -278,7 +276,6 @@ export default function Coursework({ courses = [], setCourses, coursework = [], 
             </div>
             
             <div className="grid grid-cols-2 gap-4">
-              {/* 🚀 수정된 영역: 과목명 + 학점 나란히 배치 */}
               <div className="col-span-2 flex gap-4">
                 <div className="space-y-1 flex-[3]">
                   <label className="text-xs font-black text-gray-400">과목명</label>
@@ -346,7 +343,6 @@ export default function Coursework({ courses = [], setCourses, coursework = [], 
         </div>
       )}
 
-      {/* 모달: 과제/일정 상세 */}
       {showAssignModal && (
         <div className="fixed inset-0 bg-black/40 z-[2000] flex items-center justify-center p-4">
           <form onSubmit={handleSaveAssignment} className="bg-white w-full max-w-[480px] rounded-[32px] p-8 space-y-6 animate-in zoom-in-95 duration-200 text-left">
@@ -397,7 +393,6 @@ export default function Coursework({ courses = [], setCourses, coursework = [], 
         </div>
       )}
 
-      {/* 플로팅 탑 버튼 */}
       {showScrollTop && (
         <button
           onClick={scrollToTop}

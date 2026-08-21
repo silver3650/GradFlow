@@ -70,14 +70,12 @@ export default function Dashboard({ courses = [], coursework = [], setCoursework
     }
   };
 
-  // 🚀 핵심 수정: 접속(마운트) 시 자동으로 클래스룸 새 과제 확인
   useEffect(() => {
     const timer = setTimeout(() => {
-      // providerToken이 있고, 기존 과제 데이터가 준비되었을 때만 자동 동기화 실행
       if (providerToken && coursework) {
         handleClassroomSync(true); 
       }
-    }, 1500); // 1.5초 대기: 기존 과제 데이터를 DB에서 불러올 시간을 확보
+    }, 1500); 
 
     return () => clearTimeout(timer);
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -124,30 +122,6 @@ export default function Dashboard({ courses = [], coursework = [], setCoursework
     if (result) {
       setAiAssignForm({
         title: result.title || latestGoogleTask.title,
-        due_date: result.due_date ? new Date(new Date(result.due_date).getTime() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16) : '',
-        category: result.category || 'assignment',
-        description: result.description || '',
-        sub_tasks: result.sub_tasks || [''],
-        course_id: result.course_id || '' 
-      });
-      setAiResultModal(true);
-    }
-  };
-
-  const handleTestAI = async () => {
-    const dummyTask = {
-      title: "데이터베이스 설계 최종 프로젝트",
-      description: "이번 주 금요일 자정까지 RDBMS를 활용한 쇼핑몰 데이터베이스 ERD를 설계하고 정규화(최소 3NF) 과정을 거쳐 보고서로 제출하세요. 휴강일과 겹치므로 기한을 엄수해 주세요.",
-      dueDate: "2026-08-28T23:59:00"
-    };
-
-    setIsAnalyzing(true);
-    const result = await analyzeAssignmentWithAI(dummyTask, courses); 
-    setIsAnalyzing(false);
-
-    if (result) {
-      setAiAssignForm({
-        title: result.title || dummyTask.title,
         due_date: result.due_date ? new Date(new Date(result.due_date).getTime() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16) : '',
         category: result.category || 'assignment',
         description: result.description || '',
@@ -241,20 +215,12 @@ export default function Dashboard({ courses = [], coursework = [], setCoursework
           <button 
             onClick={handleAiSplit}
             disabled={!hasNewClassroomTask || isAnalyzing}
-            className={`flex-1 md:flex-none px-5 py-2.5 rounded-xl font-black text-xs md:text-sm whitespace-nowrap shadow-sm transition-all active:scale-95 flex items-center justify-center gap-1.5
+            className={`w-full md:w-auto px-5 py-2.5 rounded-xl font-black text-xs md:text-sm whitespace-nowrap shadow-sm transition-all active:scale-95 flex items-center justify-center gap-1.5
               ${hasNewClassroomTask && !isAnalyzing ? 'bg-[#3b82f6] text-white hover:bg-blue-600' : 'bg-gray-200 text-gray-400 cursor-not-allowed'}
             `}
           >
             {isAnalyzing ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />}
             {hasNewClassroomTask ? 'AI로 쪼개기' : '완료됨'}
-          </button>
-
-          <button 
-            onClick={handleTestAI}
-            disabled={isAnalyzing}
-            className="flex-1 md:flex-none px-4 py-2.5 rounded-xl font-black text-xs md:text-sm whitespace-nowrap shadow-sm transition-all active:scale-95 bg-purple-500 text-white hover:bg-purple-600 flex items-center justify-center"
-          >
-            🧪 AI 테스트
           </button>
         </div>
       </div>
