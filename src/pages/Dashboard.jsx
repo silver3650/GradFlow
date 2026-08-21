@@ -3,7 +3,7 @@ import { supabase } from '../supabaseClient';
 import { 
   Bell, ShieldCheck, ChevronRight, FileText, 
   Calendar as CalIcon, Settings, Clock, Loader2, Sparkles, X,
-  GraduationCap
+  GraduationCap, Trash2
 } from 'lucide-react';
 import { fetchGoogleClassroomAssignments } from '../utils/classroomAPI';
 import { analyzeAssignmentWithAI } from '../utils/geminiAPI';
@@ -15,9 +15,13 @@ export default function Dashboard({ courses = [], coursework = [], setCoursework
   
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [aiResultModal, setAiResultModal] = useState(false);
-  const [analyzedData, setAnalyzedData] = useState(null);
+  
+  // 🚀 AI 결과를 담아 사용자가 수정할 수 있도록 관리하는 상태 (Form)
+  const [aiAssignForm, setAiAssignForm] = useState({
+    title: '', due_date: '', category: 'assignment',
+    description: '', sub_tasks: ['']
+  });
 
-  // 🚀 핵심 수정: 자동 감지 및 AI 분석 로직 통합
   const handleClassroomSync = async (isAutoSync = false) => {
     if (!providerToken) {
       if (!isAutoSync) {
@@ -32,24 +36,25 @@ export default function Dashboard({ courses = [], coursework = [], setCoursework
       const tasks = await fetchGoogleClassroomAssignments(providerToken);
       setClassroomTasks(tasks);
       
-      // 🚀 기존 등록된 과제들과 비교하여 '새로운 과제'만 필터링 (제목 기준)
       const newTasks = tasks.filter(task => !coursework.some(cw => cw.title === task.title));
       
       if (newTasks.length > 0) {
-        // 가장 최근의 새로운 과제 1개 처리
         const latestNewTask = newTasks[0]; 
-        
-        // 1. 사용자에게 알림
         alert(`🔔 구글 클래스룸에 새로운 과제가 감지되었습니다!\n\n[ ${latestNewTask.title} ]\nAI가 일정을 분석하여 과제함에 추가할 수 있도록 준비합니다.`);
         
-        // 2. AI 자동 분석 실행
         setIsAnalyzing(true);
         const result = await analyzeAssignmentWithAI(latestNewTask);
         setIsAnalyzing(false);
         
-        // 3. 분석 결과 모달 자동 오픈
         if (result) {
-          setAnalyzedData(result);
+          // 🚀 분석 결과를 폼 상태에 매핑하여 모달 오픈
+          setAiAssignForm({
+            title: result.title || latestNewTask.title,
+            due_date: result.due_date ? new Date(new Date(result.due_date).getTime() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16) : '',
+            category: result.category || 'assignment',
+            description: result.description || '',
+            sub_tasks: result.sub_tasks || ['']
+          });
           setAiResultModal(true); 
         }
       } else {
@@ -58,7 +63,6 @@ export default function Dashboard({ courses = [], coursework = [], setCoursework
           setTimeout(() => setActiveTab('coursework'), 500);
         }
       }
-      
     } catch (error) {
       console.error("Sync Error:", error);
       if (!isAutoSync) alert("동기화 중 오류가 발생했습니다. 권한 설정을 확인해 주세요.");
@@ -67,14 +71,11 @@ export default function Dashboard({ courses = [], coursework = [], setCoursework
     }
   };
 
-  // 컴포넌트 마운트 시 자동 동기화 시도
   useEffect(() => {
     if (providerToken && coursework) {
-      handleClassroomSync(true); // isAutoSync = true 로 조용히 백그라운드 체크
+      handleClassroomSync(true);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [providerToken]); 
-  // coursework를 의존성 배열에 넣으면 무한 루프 위험이 있어 제외합니다.
 
   const latestGoogleTask = classroomTasks.length > 0 ? classroomTasks[0] : null;
   const isLatestTaskAlreadyAdded = latestGoogleTask && coursework.some(cw => cw.title === latestGoogleTask.title);
@@ -109,27 +110,34 @@ export default function Dashboard({ courses = [], coursework = [], setCoursework
     { label: '설정 관리', onClick: () => setActiveTab('profile'), icon: <Settings className="text-orange-400" /> }
   ];
 
-  // 수동으로 버튼을 눌렀을 때의 동작
   const handleAiSplit = async () => {
     if (!latestGoogleTask || isLatestTaskAlreadyAdded) return;
     setIsAnalyzing(true);
     const result = await analyzeAssignmentWithAI(latestGoogleTask);
     setIsAnalyzing(false);
     if (result) {
-      setAnalyzedData(result);
+      setAiAssignForm({
+        title: result.title || latestGoogleTask.title,
+        due_date: result.due_date ? new Date(new Date(result.due_date).getTime() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16) : '',
+        category: result.category || 'assignment',
+        description: result.description || '',
+        sub_tasks: result.sub_tasks || ['']
+      });
       setAiResultModal(true);
     }
   };
 
-  const handleSaveAiTask = async () => {
+  // 🚀 폼 제출(사용자 검토 후 저장)
+  const handleSaveAiTask = async (e) => {
+    e.preventDefault();
     try {
       const { data: { user } } = await supabase.auth.getUser();
       const payload = {
-        title: analyzedData.title,
-        description: analyzedData.description,
-        due_date: new Date(analyzedData.dueDate).toISOString(),
-        sub_tasks: analyzedData.subTasks,
-        category: 'assignment',
+        title: aiAssignForm.title,
+        description: aiAssignForm.description,
+        due_date: new Date(aiAssignForm.due_date).toISOString(),
+        sub_tasks: aiAssignForm.sub_tasks.filter(t => t && t.trim() !== ''),
+        category: aiAssignForm.category,
         user_id: user.id,
         course_id: null 
       };
@@ -263,46 +271,55 @@ export default function Dashboard({ courses = [], coursework = [], setCoursework
         ))}
       </div>
 
-      {/* AI 분석 결과 모달 */}
-      {aiResultModal && analyzedData && (
-        <div className="fixed inset-0 bg-black/50 z-[200] flex items-center justify-center p-4 backdrop-blur-sm animate-in fade-in">
-          <div className="bg-white rounded-3xl w-full max-w-md shadow-2xl overflow-hidden animate-in zoom-in-95 flex flex-col max-h-[85vh]">
-            <div className="bg-indigo-50 p-6 flex justify-between items-start border-b border-indigo-100 shrink-0">
-              <div>
-                <span className="flex items-center gap-1.5 text-indigo-600 font-black text-xs uppercase tracking-wider mb-1"><Sparkles size={14}/> AI 분석 완료</span>
-                <h3 className="text-lg font-black text-gray-900 leading-tight">{analyzedData.title}</h3>
-              </div>
-              <button onClick={() => setAiResultModal(false)} className="text-gray-400 hover:text-gray-800 bg-white p-1 rounded-full shadow-sm"><X size={18} /></button>
+      {/* 🚀 수정됨: AI 분석 결과 모달 (사용자가 확인하고 수정할 수 있는 입력 폼) */}
+      {aiResultModal && (
+        <div className="fixed inset-0 bg-black/40 z-[2000] flex items-center justify-center p-4">
+          <form onSubmit={handleSaveAiTask} className="bg-white w-full max-w-[480px] rounded-[32px] p-8 space-y-6 animate-in zoom-in-95 duration-200 text-left flex flex-col max-h-[90vh]">
+            <div className="flex justify-between items-center shrink-0">
+              <h2 className="text-xl font-black text-gray-800">과제 및 일정 상세</h2>
+              <button type="button" onClick={() => setAiResultModal(false)}><X size={24} className="text-gray-300"/></button>
             </div>
             
-            <div className="p-6 overflow-y-auto space-y-5 text-left">
-              <div className="bg-gray-50 p-4 rounded-2xl border border-gray-100">
-                <span className="text-[10px] font-black text-gray-400 block mb-1">AI 요약 설명</span>
-                <p className="text-sm font-bold text-gray-700 leading-relaxed">{analyzedData.description}</p>
-              </div>
-              <div>
-                {/* 🚀 CSS 충돌(block, flex 중복) 수정됨 */}
-                <span className="text-[11px] font-black text-gray-500 mb-3 flex items-center gap-1"><Clock size={12}/> 자동 생성된 세부 일정</span>
-                <div className="space-y-2">
-                  {analyzedData.subTasks.map((task, idx) => (
-                    <div key={idx} className="flex gap-3 bg-white border border-gray-100 p-3 rounded-xl shadow-sm">
-                      <span className="bg-indigo-100 text-indigo-600 w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-black shrink-0">{idx + 1}</span>
-                      <p className="text-xs font-bold text-gray-800 leading-tight pt-0.5">{task}</p>
-                    </div>
-                  ))}
+            <div className="space-y-4 overflow-y-auto flex-1 pr-1">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <label className="text-xs font-black text-gray-400">마감/일정 일시</label>
+                  <input type="datetime-local" required className="w-full px-4 py-3 bg-gray-50 rounded-xl font-bold text-sm border-none outline-none" value={aiAssignForm.due_date} onChange={e => setAiAssignForm({...aiAssignForm, due_date: e.target.value})} />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-black text-gray-400">분류</label>
+                  <select className="w-full px-4 py-3 bg-gray-50 rounded-xl font-bold text-sm border-none outline-none" value={aiAssignForm.category || 'assignment'} onChange={e => setAiAssignForm({...aiAssignForm, category: e.target.value})}>
+                    <option value="assignment">과제</option>
+                    <option value="exam">시험</option>
+                    <option value="schedule">일반 일정</option>
+                    <option value="cancellation">🚨 휴강</option>
+                  </select>
                 </div>
               </div>
+              <div className="space-y-1">
+                <label className="text-xs font-black text-gray-400">제목</label>
+                <input required className="w-full px-4 py-3 bg-gray-50 rounded-xl outline-none font-bold text-sm border-none" value={aiAssignForm.title} onChange={e => setAiAssignForm({...aiAssignForm, title: e.target.value})} />
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs font-black text-gray-400">과제(일정) 내용</label>
+                <textarea className="w-full px-4 py-3 bg-gray-50 rounded-xl outline-none font-bold text-sm border-none min-h-[100px] resize-none" value={aiAssignForm.description} onChange={e => setAiAssignForm({...aiAssignForm, description: e.target.value})} placeholder="세부 내용을 기록하세요." />
+              </div>
+              <div className="space-y-2">
+                <label className="text-xs font-black text-gray-700 flex items-center gap-2"><Sparkles size={16} className="text-indigo-500" /> AI 세부 일정</label>
+                {aiAssignForm.sub_tasks.map((task, idx) => (
+                  <div key={idx} className="flex gap-2">
+                    <input className="flex-1 px-4 py-2.5 bg-gray-50 rounded-xl text-sm font-bold border-none outline-none" value={task} onChange={(e) => { const nt = [...aiAssignForm.sub_tasks]; nt[idx] = e.target.value; setAiAssignForm({...aiAssignForm, sub_tasks: nt}); }} />
+                    <button type="button" onClick={() => setAiAssignForm({...aiAssignForm, sub_tasks: aiAssignForm.sub_tasks.filter((_, i) => i !== idx)})} className="text-gray-300"><Trash2 size={18}/></button>
+                  </div>
+                ))}
+                <button type="button" onClick={() => setAiAssignForm({...aiAssignForm, sub_tasks: [...aiAssignForm.sub_tasks, '']})} className="w-full py-3 border-2 border-dashed border-gray-100 text-gray-400 rounded-xl text-xs font-black">+ 항목 추가</button>
+              </div>
             </div>
-
-            <div className="p-5 border-t border-gray-100 bg-white shrink-0">
-              <button 
-                onClick={handleSaveAiTask}
-                className="w-full bg-[#4b44e6] text-white py-4 rounded-2xl font-black text-sm shadow-lg hover:bg-indigo-700 transition-all flex justify-center items-center gap-2"
-              >
-                <FileText size={18} /> 이 일정으로 내 과제함에 등록하기
-              </button>
+            
+            <div className="flex gap-3 pt-2 shrink-0">
+              <button type="submit" className="flex-1 py-4 bg-[#6366f1] text-white rounded-2xl font-black text-sm shadow-lg">저장하기</button>
             </div>
-          </div>
+          </form>
         </div>
       )}
     </div>
