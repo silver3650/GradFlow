@@ -96,7 +96,13 @@ export default function Dashboard({ courses = [], coursework = [], setCoursework
 
   const calculateDDay = (date) => {
     if (!date) return '';
-    const diff = Math.ceil((new Date(date) - new Date().setHours(0,0,0,0)) / 86400000);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0); // 오늘 날짜의 자정 기준
+    const target = new Date(date);
+    target.setHours(0, 0, 0, 0); // 마감일 날짜의 자정 기준
+    
+    // 순수하게 날짜 차이만 계산
+    const diff = Math.round((target - today) / 86400000);
     return diff > 0 ? `D-${diff}` : diff === 0 ? 'D-Day' : `D+${Math.abs(diff)}`;
   };
 
@@ -292,9 +298,14 @@ export default function Dashboard({ courses = [], coursework = [], setCoursework
                   onChange={e => setAiAssignForm({...aiAssignForm, course_id: e.target.value})}
                 >
                   <option value="">과목 선택 안 함 (미지정)</option>
-                  {courses.map(c => (
-                    <option key={c.id} value={c.id}>{c.name}</option>
+                  
+                  {/* 🚀 수정된 부분: 'completed(이수)' 상태가 아닌 과목만 필터링하여 보여줌 */}
+                  {courses
+                    .filter(c => c.status !== 'completed') 
+                    .map(c => (
+                      <option key={c.id} value={c.id}>{c.name}</option>
                   ))}
+                  
                 </select>
               </div>
 

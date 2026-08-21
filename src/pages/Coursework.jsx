@@ -62,7 +62,12 @@ export default function Coursework({ courses = [], setCourses, coursework = [], 
 
   const getDDayLabel = (date) => {
     if (!date) return '';
-    const diff = Math.ceil((new Date(date) - new Date().setHours(0,0,0,0)) / 86400000);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const target = new Date(date);
+    target.setHours(0, 0, 0, 0);
+    
+    const diff = Math.round((target - today) / 86400000);
     return diff > 0 ? `D-${diff}` : diff === 0 ? 'D-Day' : `D+${Math.abs(diff)}`;
   };
 
