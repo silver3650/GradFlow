@@ -10,11 +10,11 @@ export const analyzeAssignmentWithAI = async (task) => {
 
   const genAI = new GoogleGenerativeAI(API_KEY);
   
- // 🚀 무료 할당량이 넉넉하고 속도가 빠른 Flash 모델을 최우선으로 배치
+ // 🚀 최신 공식 API 모델 ID로 수정
   const modelsToTry = [
-    "gemini-1.5-flash", // 가장 안정적이고 넉넉한 할당량의 Flash 모델
-    "gemini-2.0-flash", // 최신 Flash 모델 (API 키 권한에 따라 지원되는 경우)
-    "gemini-1.5-pro"    // 예비용 모델
+    "gemini-3.7-flash", // 현재 가장 최신 플래시 모델
+    "gemini-3.6-flash", // 3.x 안정화 플래시 모델
+    "gemini-3.5-flash"  // 예비용 플래시 모델
   ];
 
   const prompt = `
