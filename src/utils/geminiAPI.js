@@ -10,13 +10,12 @@ export const analyzeAssignmentWithAI = async (task) => {
 
   const genAI = new GoogleGenerativeAI(API_KEY);
   
-  // 🚀 핵심: 최신 버전부터 순차적으로 시도하는 스마트 폴백 배열
+  // 🚀 콘솔 에러의 권장 사항을 반영하여 최신 모델로 배열 수정
   const modelsToTry = [
-    "gemini-3.5-pro",
-    "gemini-2.5-pro",
-    "gemini-1.5-pro",
-    "gemini-1.5-flash",
-    "gemini-1.0-pro"
+    "gemini-3.1-pro-preview", // 에러 로그에서 권장한 최신 모델
+    "gemini-3.0-pro",         // 안정화된 3.0 버전 (존재할 경우)
+    "gemini-2.0-pro",         // 구형 폴백 모델
+    "gemini-pro"              // 가장 기본적인 기본 명칭
   ];
 
   const prompt = `
