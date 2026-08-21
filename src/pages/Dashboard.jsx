@@ -16,10 +16,10 @@ export default function Dashboard({ courses = [], coursework = [], setCoursework
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [aiResultModal, setAiResultModal] = useState(false);
   
-  // 🚀 AI 결과를 담아 사용자가 수정할 수 있도록 관리하는 상태 (Form)
+  // 🚀 course_id 상태 추가
   const [aiAssignForm, setAiAssignForm] = useState({
     title: '', due_date: '', category: 'assignment',
-    description: '', sub_tasks: ['']
+    description: '', sub_tasks: [''], course_id: ''
   });
 
   const handleClassroomSync = async (isAutoSync = false) => {
@@ -43,17 +43,18 @@ export default function Dashboard({ courses = [], coursework = [], setCoursework
         alert(`🔔 구글 클래스룸에 새로운 과제가 감지되었습니다!\n\n[ ${latestNewTask.title} ]\nAI가 일정을 분석하여 과제함에 추가할 수 있도록 준비합니다.`);
         
         setIsAnalyzing(true);
-        const result = await analyzeAssignmentWithAI(latestNewTask);
+        // 🚀 courses 데이터 넘기기
+        const result = await analyzeAssignmentWithAI(latestNewTask, courses);
         setIsAnalyzing(false);
         
         if (result) {
-          // 🚀 분석 결과를 폼 상태에 매핑하여 모달 오픈
           setAiAssignForm({
             title: result.title || latestNewTask.title,
             due_date: result.due_date ? new Date(new Date(result.due_date).getTime() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16) : '',
             category: result.category || 'assignment',
             description: result.description || '',
-            sub_tasks: result.sub_tasks || ['']
+            sub_tasks: result.sub_tasks || [''],
+            course_id: result.course_id || '' // 🚀 매칭된 과목 ID 적용
           });
           setAiResultModal(true); 
         }
@@ -114,7 +115,7 @@ export default function Dashboard({ courses = [], coursework = [], setCoursework
   const handleAiSplit = async () => {
     if (!latestGoogleTask || isLatestTaskAlreadyAdded) return;
     setIsAnalyzing(true);
-    const result = await analyzeAssignmentWithAI(latestGoogleTask);
+    const result = await analyzeAssignmentWithAI(latestGoogleTask, courses); // 🚀 courses 데이터 넘기기
     setIsAnalyzing(false);
     if (result) {
       setAiAssignForm({
@@ -122,13 +123,13 @@ export default function Dashboard({ courses = [], coursework = [], setCoursework
         due_date: result.due_date ? new Date(new Date(result.due_date).getTime() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16) : '',
         category: result.category || 'assignment',
         description: result.description || '',
-        sub_tasks: result.sub_tasks || ['']
+        sub_tasks: result.sub_tasks || [''],
+        course_id: result.course_id || '' // 🚀 매칭된 과목 ID 적용
       });
       setAiResultModal(true);
     }
   };
 
-  // 🚀 임시 테스트용: 가상의 구글 클래스룸 과제 데이터를 AI에 전송
   const handleTestAI = async () => {
     const dummyTask = {
       title: "데이터베이스 설계 최종 프로젝트",
@@ -137,7 +138,7 @@ export default function Dashboard({ courses = [], coursework = [], setCoursework
     };
 
     setIsAnalyzing(true);
-    const result = await analyzeAssignmentWithAI(dummyTask);
+    const result = await analyzeAssignmentWithAI(dummyTask, courses); // 🚀 courses 데이터 넘기기
     setIsAnalyzing(false);
 
     if (result) {
@@ -146,13 +147,13 @@ export default function Dashboard({ courses = [], coursework = [], setCoursework
         due_date: result.due_date ? new Date(new Date(result.due_date).getTime() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16) : '',
         category: result.category || 'assignment',
         description: result.description || '',
-        sub_tasks: result.sub_tasks || ['']
+        sub_tasks: result.sub_tasks || [''],
+        course_id: result.course_id || '' // 🚀 매칭된 과목 ID 적용
       });
       setAiResultModal(true);
     }
   };
 
-  // 🚀 폼 제출(사용자 검토 후 저장)
   const handleSaveAiTask = async (e) => {
     e.preventDefault();
     try {
@@ -164,7 +165,7 @@ export default function Dashboard({ courses = [], coursework = [], setCoursework
         sub_tasks: aiAssignForm.sub_tasks.filter(t => t && t.trim() !== ''),
         category: aiAssignForm.category,
         user_id: user.id,
-        course_id: null 
+        course_id: aiAssignForm.course_id || null // 🚀 폼에서 선택된 과목 ID 저장
       };
       const res = await supabase.from('assignments').insert([payload]).select();
       if (!res.error && setCoursework) {
@@ -195,7 +196,6 @@ export default function Dashboard({ courses = [], coursework = [], setCoursework
         </div>
       </div>
 
-      {/* 구글 클래스룸 자동 감지 배너 */}
       <div className="bg-[#f0f7ff] border border-blue-100 rounded-[20px] md:rounded-[24px] p-4 md:p-5 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 shadow-sm">
         <div className="flex items-center space-x-3 w-full">
           <div className="relative bg-[#4a89ff] p-3 rounded-xl text-white shadow-md shrink-0">
@@ -233,7 +233,6 @@ export default function Dashboard({ courses = [], coursework = [], setCoursework
           </div>
         </div>
         
-        {/* 🚀 테스트용 버튼이 포함된 영역 */}
         <div className="flex gap-2 w-full md:w-auto">
           <button 
             onClick={handleAiSplit}
@@ -256,7 +255,6 @@ export default function Dashboard({ courses = [], coursework = [], setCoursework
         </div>
       </div>
 
-      {/* 마감 임박 과제 메인 카드 */}
       <div className="bg-[#111827] rounded-[24px] md:rounded-[32px] p-6 md:p-8 shadow-xl relative overflow-hidden text-white group">
         <div className="flex justify-between items-center mb-6 md:mb-8">
           <h3 className="text-base md:text-lg font-bold flex items-center italic">
@@ -295,7 +293,6 @@ export default function Dashboard({ courses = [], coursework = [], setCoursework
         <div className="absolute -bottom-10 -right-10 w-32 h-32 md:w-48 md:h-48 bg-indigo-500/10 rounded-full blur-2xl md:blur-3xl group-hover:bg-indigo-500/20 transition-all"></div>
       </div>
 
-      {/* 퀵 액션 그리드 */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-5">
         {quickActions.map((action, i) => (
           <div key={i} onClick={action.onClick} className="bg-white border border-gray-100 rounded-[20px] md:rounded-[24px] p-5 md:p-6 flex flex-col items-center justify-center cursor-pointer hover:shadow-md hover:-translate-y-1 transition-all group">
@@ -307,7 +304,6 @@ export default function Dashboard({ courses = [], coursework = [], setCoursework
         ))}
       </div>
 
-      {/* AI 분석 결과 모달 (사용자가 확인하고 수정할 수 있는 입력 폼) */}
       {aiResultModal && (
         <div className="fixed inset-0 bg-black/40 z-[2000] flex items-center justify-center p-4">
           <form onSubmit={handleSaveAiTask} className="bg-white w-full max-w-[480px] rounded-[32px] p-8 space-y-6 animate-in zoom-in-95 duration-200 text-left flex flex-col max-h-[90vh]">
@@ -317,6 +313,22 @@ export default function Dashboard({ courses = [], coursework = [], setCoursework
             </div>
             
             <div className="space-y-4 overflow-y-auto flex-1 pr-1">
+              
+              {/* 🚀 드롭다운 UI: AI가 분석한 과목 띄우기 및 직접 수정 기능 */}
+              <div className="space-y-1">
+                <label className="text-xs font-black text-gray-400">과목 연결</label>
+                <select 
+                  className="w-full px-4 py-3 bg-indigo-50 rounded-xl font-bold text-sm border-none outline-none text-indigo-700" 
+                  value={aiAssignForm.course_id} 
+                  onChange={e => setAiAssignForm({...aiAssignForm, course_id: e.target.value})}
+                >
+                  <option value="">과목 선택 안 함 (미지정)</option>
+                  {courses.map(c => (
+                    <option key={c.id} value={c.id}>{c.name}</option>
+                  ))}
+                </select>
+              </div>
+
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1">
                   <label className="text-xs font-black text-gray-400">마감/일정 일시</label>
