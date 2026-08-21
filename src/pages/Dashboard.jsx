@@ -75,6 +75,7 @@ export default function Dashboard({ courses = [], coursework = [], setCoursework
     if (providerToken && coursework) {
       handleClassroomSync(true);
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [providerToken]); 
 
   const latestGoogleTask = classroomTasks.length > 0 ? classroomTasks[0] : null;
@@ -118,6 +119,30 @@ export default function Dashboard({ courses = [], coursework = [], setCoursework
     if (result) {
       setAiAssignForm({
         title: result.title || latestGoogleTask.title,
+        due_date: result.due_date ? new Date(new Date(result.due_date).getTime() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16) : '',
+        category: result.category || 'assignment',
+        description: result.description || '',
+        sub_tasks: result.sub_tasks || ['']
+      });
+      setAiResultModal(true);
+    }
+  };
+
+  // 🚀 임시 테스트용: 가상의 구글 클래스룸 과제 데이터를 AI에 전송
+  const handleTestAI = async () => {
+    const dummyTask = {
+      title: "데이터베이스 설계 최종 프로젝트",
+      description: "이번 주 금요일 자정까지 RDBMS를 활용한 쇼핑몰 데이터베이스 ERD를 설계하고 정규화(최소 3NF) 과정을 거쳐 보고서로 제출하세요. 휴강일과 겹치므로 기한을 엄수해 주세요.",
+      dueDate: "2026-08-28T23:59:00"
+    };
+
+    setIsAnalyzing(true);
+    const result = await analyzeAssignmentWithAI(dummyTask);
+    setIsAnalyzing(false);
+
+    if (result) {
+      setAiAssignForm({
+        title: result.title || dummyTask.title,
         due_date: result.due_date ? new Date(new Date(result.due_date).getTime() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16) : '',
         category: result.category || 'assignment',
         description: result.description || '',
@@ -208,16 +233,27 @@ export default function Dashboard({ courses = [], coursework = [], setCoursework
           </div>
         </div>
         
-        <button 
-          onClick={handleAiSplit}
-          disabled={!hasNewClassroomTask || isAnalyzing}
-          className={`w-full md:w-auto px-5 py-2.5 rounded-xl font-black text-xs md:text-sm whitespace-nowrap shadow-sm transition-all active:scale-95 flex items-center justify-center gap-1.5
-            ${hasNewClassroomTask && !isAnalyzing ? 'bg-[#3b82f6] text-white hover:bg-blue-600' : 'bg-gray-200 text-gray-400 cursor-not-allowed'}
-          `}
-        >
-          {isAnalyzing ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />}
-          {hasNewClassroomTask ? 'AI로 일정 쪼개기' : '완료됨'}
-        </button>
+        {/* 🚀 테스트용 버튼이 포함된 영역 */}
+        <div className="flex gap-2 w-full md:w-auto">
+          <button 
+            onClick={handleAiSplit}
+            disabled={!hasNewClassroomTask || isAnalyzing}
+            className={`flex-1 md:flex-none px-5 py-2.5 rounded-xl font-black text-xs md:text-sm whitespace-nowrap shadow-sm transition-all active:scale-95 flex items-center justify-center gap-1.5
+              ${hasNewClassroomTask && !isAnalyzing ? 'bg-[#3b82f6] text-white hover:bg-blue-600' : 'bg-gray-200 text-gray-400 cursor-not-allowed'}
+            `}
+          >
+            {isAnalyzing ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />}
+            {hasNewClassroomTask ? 'AI로 쪼개기' : '완료됨'}
+          </button>
+
+          <button 
+            onClick={handleTestAI}
+            disabled={isAnalyzing}
+            className="flex-1 md:flex-none px-4 py-2.5 rounded-xl font-black text-xs md:text-sm whitespace-nowrap shadow-sm transition-all active:scale-95 bg-purple-500 text-white hover:bg-purple-600 flex items-center justify-center"
+          >
+            🧪 AI 테스트
+          </button>
+        </div>
       </div>
 
       {/* 마감 임박 과제 메인 카드 */}
@@ -271,7 +307,7 @@ export default function Dashboard({ courses = [], coursework = [], setCoursework
         ))}
       </div>
 
-      {/* 🚀 수정됨: AI 분석 결과 모달 (사용자가 확인하고 수정할 수 있는 입력 폼) */}
+      {/* AI 분석 결과 모달 (사용자가 확인하고 수정할 수 있는 입력 폼) */}
       {aiResultModal && (
         <div className="fixed inset-0 bg-black/40 z-[2000] flex items-center justify-center p-4">
           <form onSubmit={handleSaveAiTask} className="bg-white w-full max-w-[480px] rounded-[32px] p-8 space-y-6 animate-in zoom-in-95 duration-200 text-left flex flex-col max-h-[90vh]">
