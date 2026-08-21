@@ -10,12 +10,11 @@ export const analyzeAssignmentWithAI = async (task) => {
 
   const genAI = new GoogleGenerativeAI(API_KEY);
   
-  // 🚀 콘솔 에러의 권장 사항을 반영하여 최신 모델로 배열 수정
+ // 🚀 무료 할당량이 넉넉하고 속도가 빠른 Flash 모델을 최우선으로 배치
   const modelsToTry = [
-    "gemini-3.1-pro-preview", // 에러 로그에서 권장한 최신 모델
-    "gemini-3.0-pro",         // 안정화된 3.0 버전 (존재할 경우)
-    "gemini-2.0-pro",         // 구형 폴백 모델
-    "gemini-pro"              // 가장 기본적인 기본 명칭
+    "gemini-1.5-flash", // 가장 안정적이고 넉넉한 할당량의 Flash 모델
+    "gemini-2.0-flash", // 최신 Flash 모델 (API 키 권한에 따라 지원되는 경우)
+    "gemini-1.5-pro"    // 예비용 모델
   ];
 
   const prompt = `
