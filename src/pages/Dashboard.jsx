@@ -16,7 +16,6 @@ export default function Dashboard({ courses = [], coursework = [], setCoursework
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [aiResultModal, setAiResultModal] = useState(false);
   
-  // 🚀 course_id 상태 추가
   const [aiAssignForm, setAiAssignForm] = useState({
     title: '', due_date: '', category: 'assignment',
     description: '', sub_tasks: [''], course_id: ''
@@ -43,7 +42,6 @@ export default function Dashboard({ courses = [], coursework = [], setCoursework
         alert(`🔔 구글 클래스룸에 새로운 과제가 감지되었습니다!\n\n[ ${latestNewTask.title} ]\nAI가 일정을 분석하여 과제함에 추가할 수 있도록 준비합니다.`);
         
         setIsAnalyzing(true);
-        // 🚀 courses 데이터 넘기기
         const result = await analyzeAssignmentWithAI(latestNewTask, courses);
         setIsAnalyzing(false);
         
@@ -54,7 +52,7 @@ export default function Dashboard({ courses = [], coursework = [], setCoursework
             category: result.category || 'assignment',
             description: result.description || '',
             sub_tasks: result.sub_tasks || [''],
-            course_id: result.course_id || '' // 🚀 매칭된 과목 ID 적용
+            course_id: result.course_id || '' 
           });
           setAiResultModal(true); 
         }
@@ -72,10 +70,16 @@ export default function Dashboard({ courses = [], coursework = [], setCoursework
     }
   };
 
+  // 🚀 핵심 수정: 접속(마운트) 시 자동으로 클래스룸 새 과제 확인
   useEffect(() => {
-    if (providerToken && coursework) {
-      handleClassroomSync(true);
-    }
+    const timer = setTimeout(() => {
+      // providerToken이 있고, 기존 과제 데이터가 준비되었을 때만 자동 동기화 실행
+      if (providerToken && coursework) {
+        handleClassroomSync(true); 
+      }
+    }, 1500); // 1.5초 대기: 기존 과제 데이터를 DB에서 불러올 시간을 확보
+
+    return () => clearTimeout(timer);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [providerToken]); 
 
@@ -115,7 +119,7 @@ export default function Dashboard({ courses = [], coursework = [], setCoursework
   const handleAiSplit = async () => {
     if (!latestGoogleTask || isLatestTaskAlreadyAdded) return;
     setIsAnalyzing(true);
-    const result = await analyzeAssignmentWithAI(latestGoogleTask, courses); // 🚀 courses 데이터 넘기기
+    const result = await analyzeAssignmentWithAI(latestGoogleTask, courses); 
     setIsAnalyzing(false);
     if (result) {
       setAiAssignForm({
@@ -124,7 +128,7 @@ export default function Dashboard({ courses = [], coursework = [], setCoursework
         category: result.category || 'assignment',
         description: result.description || '',
         sub_tasks: result.sub_tasks || [''],
-        course_id: result.course_id || '' // 🚀 매칭된 과목 ID 적용
+        course_id: result.course_id || '' 
       });
       setAiResultModal(true);
     }
@@ -138,7 +142,7 @@ export default function Dashboard({ courses = [], coursework = [], setCoursework
     };
 
     setIsAnalyzing(true);
-    const result = await analyzeAssignmentWithAI(dummyTask, courses); // 🚀 courses 데이터 넘기기
+    const result = await analyzeAssignmentWithAI(dummyTask, courses); 
     setIsAnalyzing(false);
 
     if (result) {
@@ -148,7 +152,7 @@ export default function Dashboard({ courses = [], coursework = [], setCoursework
         category: result.category || 'assignment',
         description: result.description || '',
         sub_tasks: result.sub_tasks || [''],
-        course_id: result.course_id || '' // 🚀 매칭된 과목 ID 적용
+        course_id: result.course_id || '' 
       });
       setAiResultModal(true);
     }
@@ -165,7 +169,7 @@ export default function Dashboard({ courses = [], coursework = [], setCoursework
         sub_tasks: aiAssignForm.sub_tasks.filter(t => t && t.trim() !== ''),
         category: aiAssignForm.category,
         user_id: user.id,
-        course_id: aiAssignForm.course_id || null // 🚀 폼에서 선택된 과목 ID 저장
+        course_id: aiAssignForm.course_id || null 
       };
       const res = await supabase.from('assignments').insert([payload]).select();
       if (!res.error && setCoursework) {
@@ -314,7 +318,6 @@ export default function Dashboard({ courses = [], coursework = [], setCoursework
             
             <div className="space-y-4 overflow-y-auto flex-1 pr-1">
               
-              {/* 🚀 드롭다운 UI: AI가 분석한 과목 띄우기 및 직접 수정 기능 */}
               <div className="space-y-1">
                 <label className="text-xs font-black text-gray-400">과목 연결</label>
                 <select 
