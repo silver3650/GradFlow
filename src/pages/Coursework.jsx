@@ -17,10 +17,11 @@ export default function Coursework({ courses = [], setCourses, coursework = [], 
   const [editingCourseId, setEditingCourseId] = useState(null);
   const [editingAssignId, setEditingAssignId] = useState(null);
 
+  // 🚀 학점(credits) 초기값 3 추가됨
   const initialCourseForm = { 
     name: '', professor: '', day_of_week: '월요일', 
     status: 'in_progress', start_date: '2026-03-02', end_date: '2026-06-20',
-    start_time: '09:00', end_time: '10:30'
+    start_time: '09:00', end_time: '10:30', credits: 3
   };
   
   const initialAssignForm = { 
@@ -100,7 +101,6 @@ export default function Coursework({ courses = [], setCourses, coursework = [], 
     if (!res.error) { setCoursework(editingAssignId ? safeCoursework.map(a => a.id === editingAssignId ? res.data[0] : a) : [...safeCoursework, res.data[0]]); setShowAssignModal(false); }
   };
 
-  // 🚀 수정된 부분: 요일을 포함하도록 포맷 변경 (예: 6/13(월) 23:59)
   const formatDisplayDate = (isoString) => {
     if (!isoString) return '';
     const d = new Date(isoString);
@@ -142,9 +142,9 @@ export default function Coursework({ courses = [], setCourses, coursework = [], 
               .sort((a,b) => getDDayValue(a.due_date) - getDDayValue(b.due_date));
             return (
               <div key={c.id} onClick={() => document.getElementById(`course-${c.id}`)?.scrollIntoView({behavior:'smooth'})} className="bg-indigo-50/40 p-2.5 md:p-4 rounded-[16px] border border-indigo-100/50 cursor-pointer min-w-0 shadow-sm hover:border-[#6b62ff] transition-all">
-                {/* 🚀 과목명 폰트 크기 대폭 확대 */}
+                {/* 🚀 요약 카드: 학점 표기 추가 */}
                 <span className="font-black text-gray-900 text-sm md:text-xl block truncate mb-2 leading-tight">
-                  {c.name} <span className="text-[#6b62ff] text-xs md:text-base">({tasks.length})</span>
+                  {c.name} <span className="text-xs font-bold text-gray-500 ml-1">{c.credits || 3}학점</span> <span className="text-[#6b62ff] text-xs md:text-base ml-1">({tasks.length})</span>
                 </span>
                 <div className="space-y-1.5">
                   {tasks.slice(0, 1).map(task => (
@@ -185,7 +185,10 @@ export default function Coursework({ courses = [], setCourses, coursework = [], 
                 <div className="min-w-0 pr-4 flex items-start gap-3">
                   <BookOpen size={18} className="text-indigo-300 mt-1 shrink-0" />
                   <div className="flex flex-col">
-                    <h3 className="text-base md:text-lg font-black truncate leading-tight">{course.name}</h3>
+                    {/* 🚀 리스트 헤더: 학점 표기 추가 */}
+                    <h3 className="text-base md:text-lg font-black truncate leading-tight">
+                      {course.name} <span className="text-xs md:text-sm font-bold text-indigo-300 ml-1">{course.credits || 3}학점</span>
+                    </h3>
                     <p className="text-[10px] md:text-xs text-indigo-200/80 font-bold mt-0.5 tracking-wide">
                       {course.professor ? `${course.professor} 교수` : '교수 미지정'} ㅣ {course.day_of_week ? course.day_of_week.replace('요일', '') : ''} {course.start_time ? course.start_time.slice(0, 5) : ''}
                     </p>
@@ -235,10 +238,8 @@ export default function Coursework({ courses = [], setCourses, coursework = [], 
                       <div className="flex justify-between items-center border-t border-black/5 pt-4">
                         <span className="text-[11px] text-gray-500 font-bold flex items-center gap-1.5"><Clock size={14}/> {formatDisplayDate(a.due_date)}</span>
                         <div className="flex items-center gap-2.5">
-                          {/* 🚀 상세 보기 안내 텍스트 추가 */}
                           <span className="text-[10px] text-indigo-400 font-black animate-pulse">상세 내용 확인</span>
                           
-                          {/* 🚀 수정된 부분: 토글 버튼을 직관적인 버튼 형태로 변경 */}
                           <button 
                             onClick={async (e) => { 
                               e.stopPropagation(); 
@@ -269,20 +270,78 @@ export default function Coursework({ courses = [], setCourses, coursework = [], 
       {showCourseModal && (
         <div className="fixed inset-0 bg-black/50 z-[2000] flex items-center justify-center p-4 backdrop-blur-sm">
           <form onSubmit={handleSaveCourse} className="bg-white w-full max-w-[420px] rounded-[32px] p-8 space-y-5 animate-in zoom-in-95 duration-200 text-left">
-             <div className="flex justify-between items-center"><h2 className="text-lg font-black text-gray-900">과목 정보 설정</h2><button type="button" onClick={() => setShowCourseModal(false)}><X size={24} className="text-gray-300"/></button></div>
-             <div className="grid grid-cols-2 gap-4">
-               <div className="space-y-1 col-span-2"><label className="text-xs font-black text-gray-400">과목명</label><input required className="w-full px-4 py-3 bg-gray-50 rounded-xl font-bold text-sm border-none outline-none" value={courseForm.name} onChange={e => setCourseForm({...courseForm, name: e.target.value})} /></div>
-               <div className="space-y-1"><label className="text-xs font-black text-gray-400">교수명</label><input className="w-full px-4 py-3 bg-gray-50 rounded-xl font-bold text-sm border-none outline-none" value={courseForm.professor} onChange={e => setCourseForm({...courseForm, professor: e.target.value})} /></div>
-               <div className="space-y-1"><label className="text-xs font-black text-gray-400">수업요일</label><select className="w-full px-4 py-3 bg-gray-50 rounded-xl font-bold text-sm border-none outline-none" value={courseForm.day_of_week} onChange={e => setCourseForm({...courseForm, day_of_week: e.target.value})}>{['월요일','화요일','수요일','목요일','금요일','토요일','일요일'].map(d => <option key={d} value={d}>{d}</option>)}</select></div>
-               <div className="space-y-1 col-span-2"><label className="text-xs font-black text-gray-400">수업 기간</label><div className="flex items-center gap-2 bg-gray-50 rounded-xl px-2"><input type="date" className="w-full px-2 py-3 bg-transparent font-bold text-sm border-none outline-none" value={courseForm.start_date} onChange={e => setCourseForm({...courseForm, start_date: e.target.value})} /><span className="text-gray-300 font-bold">~</span><input type="date" className="w-full px-2 py-3 bg-transparent font-bold text-sm border-none outline-none" value={courseForm.end_date} onChange={e => setCourseForm({...courseForm, end_date: e.target.value})} /></div></div>
-               <div className="space-y-1"><label className="text-xs font-black text-gray-400">시작시간</label><input type="time" className="w-full px-4 py-3 bg-gray-50 rounded-xl font-bold text-sm border-none outline-none" value={courseForm.start_time} onChange={e => setCourseForm({...courseForm, start_time: e.target.value})} /></div>
-               <div className="space-y-1"><label className="text-xs font-black text-gray-400">종료시간</label><input type="time" className="w-full px-4 py-3 bg-gray-50 rounded-xl font-bold text-sm border-none outline-none" value={courseForm.end_time} onChange={e => setCourseForm({...courseForm, end_time: e.target.value})} /></div>
-               <div className="space-y-1 col-span-2"><label className="text-xs font-black text-gray-400">이수 상태</label><select className="w-full px-4 py-3 bg-gray-50 rounded-xl font-bold text-sm border-none outline-none" value={courseForm.status} onChange={e => setCourseForm({...courseForm, status: e.target.value})}><option value="in_progress">수업중</option><option value="completed">완료</option><option value="incomplete">미이수</option></select></div>
-             </div>
-             <div className="flex gap-3 pt-2">
-               {editingCourseId && <button type="button" onClick={async () => { if(window.confirm('삭제할까요?')) { await supabase.from('courses').delete().eq('id', editingCourseId); setCourses(safeCourses.filter(c => c.id !== editingCourseId)); setShowCourseModal(false); } }} className="px-6 py-4 bg-red-50 text-red-500 rounded-2xl font-black text-sm">삭제</button>}
-               <button type="submit" className="flex-1 py-4 bg-[#6366f1] text-white rounded-2xl font-black text-sm shadow-lg">저장하기</button>
-             </div>
+            <div className="flex justify-between items-center">
+              <h2 className="text-lg font-black text-gray-900">과목 정보 설정</h2>
+              <button type="button" onClick={() => setShowCourseModal(false)}>
+                <X size={24} className="text-gray-300"/>
+              </button>
+            </div>
+            
+            <div className="grid grid-cols-2 gap-4">
+              {/* 🚀 수정된 영역: 과목명 + 학점 나란히 배치 */}
+              <div className="col-span-2 flex gap-4">
+                <div className="space-y-1 flex-[3]">
+                  <label className="text-xs font-black text-gray-400">과목명</label>
+                  <input 
+                    required 
+                    className="w-full px-4 py-3 bg-gray-50 rounded-xl font-bold text-sm border-none outline-none" 
+                    value={courseForm.name || ''} 
+                    onChange={e => setCourseForm({...courseForm, name: e.target.value})} 
+                  />
+                </div>
+                <div className="space-y-1 flex-[1]">
+                  <label className="text-xs font-black text-gray-400">학점</label>
+                  <input 
+                    type="number" 
+                    min="1" max="10" 
+                    required 
+                    className="w-full px-4 py-3 bg-gray-50 rounded-xl font-bold text-sm border-none outline-none" 
+                    value={courseForm.credits || ''} 
+                    onChange={e => setCourseForm({...courseForm, credits: Number(e.target.value)})} 
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-xs font-black text-gray-400">교수명</label>
+                <input className="w-full px-4 py-3 bg-gray-50 rounded-xl font-bold text-sm border-none outline-none" value={courseForm.professor} onChange={e => setCourseForm({...courseForm, professor: e.target.value})} />
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs font-black text-gray-400">수업요일</label>
+                <select className="w-full px-4 py-3 bg-gray-50 rounded-xl font-bold text-sm border-none outline-none" value={courseForm.day_of_week} onChange={e => setCourseForm({...courseForm, day_of_week: e.target.value})}>
+                  {['월요일','화요일','수요일','목요일','금요일','토요일','일요일'].map(d => <option key={d} value={d}>{d}</option>)}
+                </select>
+              </div>
+              <div className="space-y-1 col-span-2">
+                <label className="text-xs font-black text-gray-400">수업 기간</label>
+                <div className="flex items-center gap-2 bg-gray-50 rounded-xl px-2">
+                  <input type="date" className="w-full px-2 py-3 bg-transparent font-bold text-sm border-none outline-none" value={courseForm.start_date} onChange={e => setCourseForm({...courseForm, start_date: e.target.value})} />
+                  <span className="text-gray-300 font-bold">~</span>
+                  <input type="date" className="w-full px-2 py-3 bg-transparent font-bold text-sm border-none outline-none" value={courseForm.end_date} onChange={e => setCourseForm({...courseForm, end_date: e.target.value})} />
+                </div>
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs font-black text-gray-400">시작시간</label>
+                <input type="time" className="w-full px-4 py-3 bg-gray-50 rounded-xl font-bold text-sm border-none outline-none" value={courseForm.start_time} onChange={e => setCourseForm({...courseForm, start_time: e.target.value})} />
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs font-black text-gray-400">종료시간</label>
+                <input type="time" className="w-full px-4 py-3 bg-gray-50 rounded-xl font-bold text-sm border-none outline-none" value={courseForm.end_time} onChange={e => setCourseForm({...courseForm, end_time: e.target.value})} />
+              </div>
+              <div className="space-y-1 col-span-2">
+                <label className="text-xs font-black text-gray-400">이수 상태</label>
+                <select className="w-full px-4 py-3 bg-gray-50 rounded-xl font-bold text-sm border-none outline-none" value={courseForm.status} onChange={e => setCourseForm({...courseForm, status: e.target.value})}>
+                  <option value="in_progress">수업중</option>
+                  <option value="completed">완료</option>
+                  <option value="incomplete">미이수</option>
+                </select>
+              </div>
+            </div>
+            
+            <div className="flex gap-3 pt-2">
+              {editingCourseId && <button type="button" onClick={async () => { if(window.confirm('삭제할까요?')) { await supabase.from('courses').delete().eq('id', editingCourseId); setCourses(safeCourses.filter(c => c.id !== editingCourseId)); setShowCourseModal(false); } }} className="px-6 py-4 bg-red-50 text-red-500 rounded-2xl font-black text-sm">삭제</button>}
+              <button type="submit" className="flex-1 py-4 bg-[#6366f1] text-white rounded-2xl font-black text-sm shadow-lg">저장하기</button>
+            </div>
           </form>
         </div>
       )}
@@ -291,14 +350,34 @@ export default function Coursework({ courses = [], setCourses, coursework = [], 
       {showAssignModal && (
         <div className="fixed inset-0 bg-black/40 z-[2000] flex items-center justify-center p-4">
           <form onSubmit={handleSaveAssignment} className="bg-white w-full max-w-[480px] rounded-[32px] p-8 space-y-6 animate-in zoom-in-95 duration-200 text-left">
-            <div className="flex justify-between items-center"><h2 className="text-xl font-black text-gray-800">과제 및 일정 상세</h2><button type="button" onClick={() => setShowAssignModal(false)}><X size={24} className="text-gray-300"/></button></div>
+            <div className="flex justify-between items-center">
+              <h2 className="text-xl font-black text-gray-800">과제 및 일정 상세</h2>
+              <button type="button" onClick={() => setShowAssignModal(false)}><X size={24} className="text-gray-300"/></button>
+            </div>
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1"><label className="text-xs font-black text-gray-400">마감/일정 일시</label><input type="datetime-local" required className="w-full px-4 py-3 bg-gray-50 rounded-xl font-bold text-sm border-none outline-none" value={assignForm.due_date} onChange={e => setAssignForm({...assignForm, due_date: e.target.value})} /></div>
-                <div className="space-y-1"><label className="text-xs font-black text-gray-400">분류</label><select className="w-full px-4 py-3 bg-gray-50 rounded-xl font-bold text-sm border-none outline-none" value={assignForm.category || 'assignment'} onChange={e => setAssignForm({...assignForm, category: e.target.value})}><option value="assignment">과제</option><option value="exam">시험</option><option value="schedule">일반 일정</option><option value="cancellation">🚨 휴강</option></select></div>
+                <div className="space-y-1">
+                  <label className="text-xs font-black text-gray-400">마감/일정 일시</label>
+                  <input type="datetime-local" required className="w-full px-4 py-3 bg-gray-50 rounded-xl font-bold text-sm border-none outline-none" value={assignForm.due_date} onChange={e => setAssignForm({...assignForm, due_date: e.target.value})} />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs font-black text-gray-400">분류</label>
+                  <select className="w-full px-4 py-3 bg-gray-50 rounded-xl font-bold text-sm border-none outline-none" value={assignForm.category || 'assignment'} onChange={e => setAssignForm({...assignForm, category: e.target.value})}>
+                    <option value="assignment">과제</option>
+                    <option value="exam">시험</option>
+                    <option value="schedule">일반 일정</option>
+                    <option value="cancellation">🚨 휴강</option>
+                  </select>
+                </div>
               </div>
-              <div className="space-y-1"><label className="text-xs font-black text-gray-400">제목</label><input required className="w-full px-4 py-3 bg-gray-50 rounded-xl outline-none font-bold text-sm border-none" value={assignForm.title} onChange={e => setAssignForm({...assignForm, title: e.target.value})} /></div>
-              <div className="space-y-1"><label className="text-xs font-black text-gray-400">과제(일정) 내용</label><textarea className="w-full px-4 py-3 bg-gray-50 rounded-xl outline-none font-bold text-sm border-none min-h-[100px] resize-none" value={assignForm.description} onChange={e => setAssignForm({...assignForm, description: e.target.value})} placeholder="세부 내용을 기록하세요." /></div>
+              <div className="space-y-1">
+                <label className="text-xs font-black text-gray-400">제목</label>
+                <input required className="w-full px-4 py-3 bg-gray-50 rounded-xl outline-none font-bold text-sm border-none" value={assignForm.title} onChange={e => setAssignForm({...assignForm, title: e.target.value})} />
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs font-black text-gray-400">과제(일정) 내용</label>
+                <textarea className="w-full px-4 py-3 bg-gray-50 rounded-xl outline-none font-bold text-sm border-none min-h-[100px] resize-none" value={assignForm.description} onChange={e => setAssignForm({...assignForm, description: e.target.value})} placeholder="세부 내용을 기록하세요." />
+              </div>
               <div className="space-y-2">
                 <label className="text-xs font-black text-gray-700 flex items-center gap-2"><Sparkles size={16} className="text-indigo-500" /> AI 세부 일정</label>
                 {assignForm.sub_tasks.map((task, idx) => (
