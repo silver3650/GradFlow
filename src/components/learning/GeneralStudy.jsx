@@ -77,7 +77,6 @@ const sortKeywordsByText = (keywords, text) => {
   });
 };
 
-// 🚀 onNavigate props 추가
 export default function GeneralStudy({ onBack, onNavigate }) {
   const [generalTab, setGeneralTab] = useState('study'); 
   const [toastMsg, setToastMsg] = useState('');
@@ -264,28 +263,29 @@ ${payload.type === 'text'
   };
 
   return (
-    <div className="max-w-6xl mx-auto animate-in slide-in-from-right-4 duration-300 relative">
+    // 🚀 하단 네비게이션바에 가리지 않도록 pb-32 여백 추가
+    <div className="max-w-6xl mx-auto animate-in slide-in-from-right-4 duration-300 relative pb-32">
       
-      {/* 🚀 통합 상단 네비게이션 바 */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 bg-white p-2.5 rounded-2xl shadow-sm border border-slate-200 mb-6">
-        {onBack ? (
+      {/* 🚀 공간 절약을 위해 뒤로가기와 탭을 한 줄로 결합 (모바일 최적화) */}
+      <div className="flex items-center justify-between bg-white p-1.5 rounded-2xl shadow-sm border border-slate-200 mb-4 gap-2">
+        {onBack && (
           <button 
             onClick={onBack}
-            className="flex items-center gap-1.5 text-slate-500 hover:text-slate-800 font-bold px-3 py-2 rounded-xl transition-colors text-xs hover:bg-slate-50"
+            className="flex items-center justify-center p-2 text-slate-500 hover:bg-slate-50 rounded-xl transition-colors shrink-0"
+            title="대시보드로 돌아가기"
           >
-            <ArrowLeft size={15} /> 대시보드로 돌아가기
+            <ArrowLeft size={18} />
           </button>
-        ) : <div />}
-        
-        <div className="flex bg-slate-100 p-1.5 rounded-xl border border-slate-200 w-full sm:w-auto shrink-0">
-          <button className="flex-1 sm:flex-none px-4 py-2 text-xs font-bold rounded-lg transition-all bg-white shadow text-emerald-700 pointer-events-none">
-            일반 과목 학습
+        )}
+        <div className="flex flex-1 bg-slate-100 p-1 rounded-xl">
+          <button className="flex-1 py-1.5 text-[11px] sm:text-xs font-bold rounded-lg transition-all bg-white shadow text-emerald-700 pointer-events-none">
+            일반 과목
           </button>
           <button 
             onClick={() => onNavigate && onNavigate('learning_biblical')}
-            className="flex-1 sm:flex-none px-4 py-2 text-xs font-bold rounded-lg transition-all text-slate-500 hover:bg-slate-200/50"
+            className="flex-1 py-1.5 text-[11px] sm:text-xs font-bold rounded-lg transition-all text-slate-500 hover:bg-slate-200/50"
           >
-            성서 원어 훈련
+            성서 원어
           </button>
         </div>
       </div>
@@ -297,12 +297,13 @@ ${payload.type === 'text'
         </div>
       )}
 
-      <div className="flex bg-white p-2 rounded-2xl shadow-sm border border-slate-200 mb-6 overflow-x-auto no-scrollbar">
-         <button onClick={() => setGeneralTab('upload')} className={`flex-1 px-4 py-3 text-xs font-black rounded-xl transition-all ${generalTab === 'upload' ? 'bg-emerald-50 text-emerald-700 shadow-sm' : 'text-slate-500 hover:bg-slate-50'}`}>문제/답안 등록</button>
-         <button onClick={() => setGeneralTab('study')} className={`flex-1 px-4 py-3 text-xs font-black rounded-xl transition-all ${generalTab === 'study' ? 'bg-emerald-50 text-emerald-700 shadow-sm' : 'text-slate-500 hover:bg-slate-50'}`}>
-           문제 목록 및 학습 {(generalData.length > 0 || quizData.length > 0) && <span className="ml-1 bg-emerald-500 text-white px-1.5 py-0.5 rounded-full text-[10px]">{generalData.length + quizData.length}</span>}
+      {/* 🚀 서브 메뉴 탭 패딩 축소로 공간 확보 */}
+      <div className="flex bg-white p-1.5 rounded-2xl shadow-sm border border-slate-200 mb-5 overflow-x-auto no-scrollbar">
+         <button onClick={() => setGeneralTab('upload')} className={`flex-1 px-3 py-2.5 text-[11px] sm:text-xs font-black rounded-xl transition-all ${generalTab === 'upload' ? 'bg-emerald-50 text-emerald-700 shadow-sm' : 'text-slate-500 hover:bg-slate-50'}`}>문제/답안 등록</button>
+         <button onClick={() => setGeneralTab('study')} className={`flex-1 px-3 py-2.5 text-[11px] sm:text-xs font-black rounded-xl transition-all ${generalTab === 'study' ? 'bg-emerald-50 text-emerald-700 shadow-sm' : 'text-slate-500 hover:bg-slate-50'}`}>
+           목록 및 학습 {(generalData.length > 0 || quizData.length > 0) && <span className="ml-1 bg-emerald-500 text-white px-1.5 py-0.5 rounded-full text-[10px]">{generalData.length + quizData.length}</span>}
          </button>
-         <button onClick={() => setGeneralTab('review')} className={`flex-1 px-4 py-3 text-xs font-black rounded-xl transition-all ${generalTab === 'review' ? 'bg-emerald-50 text-emerald-700 shadow-sm' : 'text-slate-500 hover:bg-slate-50'}`}>
+         <button onClick={() => setGeneralTab('review')} className={`flex-1 px-3 py-2.5 text-[11px] sm:text-xs font-black rounded-xl transition-all ${generalTab === 'review' ? 'bg-emerald-50 text-emerald-700 shadow-sm' : 'text-slate-500 hover:bg-slate-50'}`}>
            오답 노트 {generalReviewList.length > 0 && <span className="ml-1 bg-rose-500 text-white px-1.5 py-0.5 rounded-full text-[10px]">{generalReviewList.length}</span>}
          </button>
       </div>
@@ -311,13 +312,13 @@ ${payload.type === 'text'
       
       {generalTab === 'study' && (
         isAnalyzing ? (
-          <div className="bg-white p-10 md:p-20 rounded-3xl shadow-sm border border-slate-200 flex flex-col items-center justify-center animate-in fade-in duration-300">
-            <RefreshCw className="animate-spin text-emerald-500 mb-5" size={48} />
+          <div className="bg-white p-8 md:p-16 rounded-3xl shadow-sm border border-slate-200 flex flex-col items-center justify-center animate-in fade-in duration-300 mt-2">
+            <RefreshCw className="animate-spin text-emerald-500 mb-4" size={40} />
             <h3 className="text-sm md:text-base font-extrabold text-slate-800 mb-2">AI가 학습 데이터를 분석하고 있습니다</h3>
             <p className="text-xs md:text-sm text-slate-500 mb-6 text-center leading-relaxed">
-              입력하신 파일 내의 복수 문제를 분리하고, 필요한 답안을 자동 작성하며<br className="hidden md:block"/>단락별 뼈대 구조화 및 빈칸 훈련 세트를 생성 중입니다. (약 10~20초 소요)
+              복수 문제를 분리하고, 필요한 답안을 자동 작성하며<br className="hidden md:block"/>단락별 뼈대 구조화를 진행 중입니다.
             </p>
-            <div className="w-48 h-1.5 bg-slate-100 rounded-full overflow-hidden">
+            <div className="w-40 h-1.5 bg-slate-100 rounded-full overflow-hidden">
               <div className="h-full bg-emerald-400 w-1/2 rounded-full animate-[ping_1.5s_cubic-bezier(0,0,0.2,1)_infinite] origin-left"></div>
             </div>
           </div>
@@ -388,26 +389,26 @@ function GeneralUploadTab({ onUpload }) {
   };
 
   return (
-    <div className="max-w-4xl mx-auto space-y-3 animate-in fade-in duration-300 pb-6">
+    <div className="max-w-4xl mx-auto space-y-3 animate-in fade-in duration-300">
       <div className="bg-emerald-900 text-white p-4 rounded-3xl shadow-md">
          <h2 className="text-sm font-bold mb-1 flex items-center gap-1.5"><Brain size={15} className="text-emerald-400" /> 일반 과목 AI 논술 분석기</h2>
-         <p className="text-emerald-100 text-xs leading-relaxed max-w-lg">문제(다수 가능)가 포함된 교재 텍스트 파일을 통째로 넣어도 AI가 문항별로 분리하고 답안을 작성하여 구조화합니다.</p>
+         <p className="text-emerald-100 text-xs leading-relaxed max-w-lg">문제(다수 가능)가 포함된 텍스트 파일을 통째로 넣어도 AI가 문항별로 분리하고 답안을 작성하여 구조화합니다.</p>
       </div>
       
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
         <div className="bg-white p-4 rounded-3xl shadow-sm border border-slate-200 flex flex-col space-y-2">
            <div className="flex items-center gap-1.5"><PenTool className="text-emerald-500" size={13}/><h3 className="text-xs font-bold text-slate-800">텍스트 직접 입력</h3></div>
-           <div><label className="block text-[11px] font-bold text-slate-700 mb-1">과목/분류명</label><input type="text" placeholder="예) 구약개론 / 중간고사" className="w-full p-2.5 text-xs border border-slate-200 rounded-xl outline-none focus:border-emerald-500" value={subject} onChange={e => setSubject(e.target.value)} /></div>
-           <div><label className="block text-[11px] font-bold text-slate-700 mb-1">문제 (필수)</label><textarea rows={2} placeholder="출제될 문제를 입력하세요." className="w-full p-2.5 text-xs border border-slate-200 rounded-xl outline-none resize-none focus:border-emerald-500" value={question} onChange={e => setQuestion(e.target.value)} /></div>
-           <div className="flex-1 flex flex-col"><label className="block text-[11px] font-bold text-slate-700 mb-1">모범 답안 (선택)</label><textarea rows={3} placeholder="비워두시면 AI가 모범답안을 스스로 작성합니다." className="w-full p-2.5 text-xs border border-slate-200 rounded-xl outline-none resize-none flex-1 focus:border-emerald-500" value={answer} onChange={e => setAnswer(e.target.value)} /></div>
-           <button onClick={handleTextSubmit} disabled={isParsing || !subject || !question} className="w-full py-2.5 bg-slate-800 hover:bg-slate-900 text-white text-xs font-bold rounded-xl transition-transform active:scale-95 disabled:opacity-70">
+           <div><label className="block text-[11px] font-bold text-slate-700 mb-1">과목/분류명</label><input type="text" placeholder="예) 구약개론 / 중간고사" className="w-full p-2 text-xs border border-slate-200 rounded-xl outline-none focus:border-emerald-500" value={subject} onChange={e => setSubject(e.target.value)} /></div>
+           <div><label className="block text-[11px] font-bold text-slate-700 mb-1">문제 (필수)</label><textarea rows={2} placeholder="출제될 문제를 입력하세요." className="w-full p-2 text-xs border border-slate-200 rounded-xl outline-none resize-none focus:border-emerald-500" value={question} onChange={e => setQuestion(e.target.value)} /></div>
+           <div className="flex-1 flex flex-col"><label className="block text-[11px] font-bold text-slate-700 mb-1">모범 답안 (선택)</label><textarea rows={3} placeholder="비워두시면 AI가 모범답안을 스스로 작성합니다." className="w-full p-2 text-xs border border-slate-200 rounded-xl outline-none resize-none flex-1 focus:border-emerald-500" value={answer} onChange={e => setAnswer(e.target.value)} /></div>
+           <button onClick={handleTextSubmit} disabled={isParsing || !subject || !question} className="w-full py-2 bg-slate-800 hover:bg-slate-900 text-white text-xs font-bold rounded-xl transition-transform active:scale-95 disabled:opacity-70 mt-1">
               {isParsing ? '준비 중...' : '입력 내용 AI 분석 시작'}
            </button>
         </div>
 
         <div className="bg-emerald-50 p-4 rounded-3xl shadow-sm border-2 border-emerald-200 flex flex-col relative">
            <div className="mb-2 flex items-center gap-1.5"><UploadCloud className="text-emerald-600" size={13}/><h3 className="text-xs font-bold text-emerald-900">파일 첨부 / 다중 문제 인식</h3></div>
-           <div className="mb-2"><label className="block text-[11px] font-bold text-emerald-800 mb-1">과목/분류명 지정</label><input type="text" placeholder="예) 구약개론 / 기말과제" className="w-full p-2.5 text-xs border border-emerald-200 rounded-xl outline-none bg-white font-bold text-emerald-900 focus:border-emerald-500" value={fileSubject} onChange={e => setFileSubject(e.target.value)} /></div>
+           <div className="mb-2"><label className="block text-[11px] font-bold text-emerald-800 mb-1">과목/분류명 지정</label><input type="text" placeholder="예) 구약개론 / 기말과제" className="w-full p-2 text-xs border border-emerald-200 rounded-xl outline-none bg-white font-bold text-emerald-900 focus:border-emerald-500" value={fileSubject} onChange={e => setFileSubject(e.target.value)} /></div>
            
            <input type="file" id="file-upload" className="hidden" accept=".txt,.md,.csv" onChange={handleFileInputChange} />
            
@@ -439,9 +440,9 @@ function GeneralStudyTab({ dataList, quizList, onUpdateData, onDeleteData, onFai
   const [studyMode, setStudyMode] = useState('essay'); 
 
   if(dataList.length === 0 && quizList.length === 0) return (
-    <div className="text-center py-8 animate-in fade-in">
-      <UploadCloud size={24} className="mx-auto mb-1.5 text-slate-300" />
-      <div className="text-slate-500 font-bold text-xs">등록된 문제가 없습니다. 새로운 문제를 등록해 보세요.</div>
+    <div className="text-center py-10 animate-in fade-in">
+      <UploadCloud size={32} className="mx-auto mb-2 text-slate-300" />
+      <div className="text-slate-500 font-bold text-sm">등록된 문제가 없습니다.</div>
     </div>
   );
 
@@ -455,30 +456,27 @@ function GeneralStudyTab({ dataList, quizList, onUpdateData, onDeleteData, onFai
   if (!selectedId) {
     return (
       <div className="max-w-4xl mx-auto space-y-3 animate-in fade-in duration-300">
-        <div className="flex bg-slate-100 p-1.5 rounded-2xl border border-slate-200 w-full sm:w-fit mx-auto mb-3">
-           <button onClick={() => setStudyMode('essay')} className={`flex-1 sm:flex-none px-6 py-2 text-xs font-bold rounded-xl transition-all ${studyMode === 'essay' ? 'bg-white shadow-sm text-emerald-700' : 'text-slate-500'}`}><PenTool size={13} className="inline mr-1"/> 서술형/논술형</button>
-           <button onClick={() => setStudyMode('quiz')} className={`flex-1 sm:flex-none px-6 py-2 text-xs font-bold rounded-xl transition-all ${studyMode === 'quiz' ? 'bg-white shadow-sm text-indigo-700' : 'text-slate-500'}`}><CheckSquare size={13} className="inline mr-1"/> 객관식/단답형</button>
+        <div className="flex bg-slate-100 p-1 rounded-2xl border border-slate-200 w-full sm:w-fit mx-auto mb-4">
+           <button onClick={() => setStudyMode('essay')} className={`flex-1 sm:flex-none px-6 py-2 text-xs font-bold rounded-xl transition-all ${studyMode === 'essay' ? 'bg-white shadow text-emerald-700' : 'text-slate-500'}`}><PenTool size={13} className="inline mr-1"/> 서술형/논술형</button>
+           <button onClick={() => setStudyMode('quiz')} className={`flex-1 sm:flex-none px-6 py-2 text-xs font-bold rounded-xl transition-all ${studyMode === 'quiz' ? 'bg-white shadow text-indigo-700' : 'text-slate-500'}`}><CheckSquare size={13} className="inline mr-1"/> 객관식/단답형</button>
         </div>
-        <h2 className="text-xs font-bold text-slate-800 flex items-center gap-1.5 mb-2">
-          <List size={14} className={studyMode === 'essay' ? "text-emerald-500" : "text-indigo-500"} /> 
-          {studyMode === 'essay' ? '서술형 과목별 목록' : '객관식/단답형 과목별 목록'}
-        </h2>
+        
         {Object.entries(groupedData).map(([subjectName, items]) => (
-          <div key={subjectName} className="mb-3.5">
-            <h3 className={`text-xs font-extrabold px-3.5 py-1.5 rounded-t-2xl inline-block border-t border-l border-r ${studyMode === 'essay' ? 'text-emerald-800 bg-emerald-100 border-emerald-200' : 'text-indigo-800 bg-indigo-100 border-indigo-200'}`}>
+          <div key={subjectName} className="mb-4">
+            <h3 className={`text-xs font-extrabold px-3 py-1.5 rounded-t-xl inline-block border-t border-l border-r ${studyMode === 'essay' ? 'text-emerald-800 bg-emerald-100 border-emerald-200' : 'text-indigo-800 bg-indigo-100 border-indigo-200'}`}>
               📁 {subjectName} <span className="font-normal">({items.length})</span>
             </h3>
-            <div className={`p-3 rounded-b-3xl rounded-tr-3xl border space-y-2.5 ${studyMode === 'essay' ? 'bg-emerald-50/20 border-emerald-100' : 'bg-indigo-50/20 border-indigo-100'}`}>
+            <div className={`p-3 rounded-b-2xl rounded-tr-2xl border space-y-2 ${studyMode === 'essay' ? 'bg-emerald-50/20 border-emerald-100' : 'bg-indigo-50/20 border-indigo-100'}`}>
               {items.map(item => (
-                <div key={item.id} className="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-sm transition-all group flex items-start justify-between gap-3 hover:border-emerald-400 hover:shadow-md">
-                  <div onClick={() => setSelectedId(item.id)} className="flex-1 flex items-start gap-2.5 cursor-pointer min-w-0">
-                    {studyMode === 'quiz' && <span className={`text-[11px] font-bold px-2.5 py-1 rounded-lg shrink-0 mt-0.5 ${item.type === 'multiple' ? 'bg-indigo-100 text-indigo-700' : 'bg-amber-100 text-amber-700'}`}>{item.type === 'multiple' ? '객관식' : '단답형'}</span>}
-                    <h4 className="text-xs font-bold text-slate-800 group-hover:text-emerald-700 transition-colors leading-relaxed break-keep whitespace-normal">{item.question}</h4>
+                <div key={item.id} className="bg-white p-3 rounded-xl border border-slate-200 shadow-sm transition-all group flex items-start justify-between gap-3 hover:border-emerald-400 hover:shadow-md">
+                  <div onClick={() => setSelectedId(item.id)} className="flex-1 flex items-start gap-2.5 cursor-pointer min-w-0 py-1">
+                    {studyMode === 'quiz' && <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md shrink-0 mt-0.5 ${item.type === 'multiple' ? 'bg-indigo-100 text-indigo-700' : 'bg-amber-100 text-amber-700'}`}>{item.type === 'multiple' ? '객관식' : '단답형'}</span>}
+                    <h4 className="text-[13px] font-bold text-slate-800 group-hover:text-emerald-700 transition-colors leading-relaxed break-keep whitespace-normal">{item.question}</h4>
                   </div>
-                  <div className="flex items-center gap-2 shrink-0 mt-0.5">
-                    <button onClick={() => setSelectedId(item.id)} className="text-xs font-bold text-slate-400 group-hover:text-emerald-600 flex items-center gap-1">학습하기 <ChevronRight size={14} /></button>
-                    <button onClick={(e) => { e.stopPropagation(); onDeleteData(item.id, studyMode === 'essay' ? 'essay' : 'quiz'); }} className="p-1.5 text-gray-300 hover:text-rose-500 rounded-lg transition-colors" title="문제 삭제">
-                      <Trash2 size={15} />
+                  <div className="flex items-center gap-1 shrink-0 mt-0.5">
+                    <button onClick={() => setSelectedId(item.id)} className="text-[11px] font-bold text-slate-400 group-hover:text-emerald-600 flex items-center bg-slate-50 group-hover:bg-emerald-50 px-2 py-1.5 rounded-lg transition-colors">학습하기 <ChevronRight size={12} /></button>
+                    <button onClick={(e) => { e.stopPropagation(); onDeleteData(item.id, studyMode === 'essay' ? 'essay' : 'quiz'); }} className="p-1.5 text-gray-300 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-colors" title="문제 삭제">
+                      <Trash2 size={14} />
                     </button>
                   </div>
                 </div>
@@ -525,9 +523,9 @@ function QuizDetailView({ data, onBack, onFail, onSuccess }) {
   };
 
   return (
-    <div className="max-w-2xl mx-auto space-y-3 animate-in slide-in-from-bottom-3 duration-300 pb-6">
-      <button onClick={onBack} className="flex items-center gap-1 text-xs font-bold text-slate-500 hover:text-slate-800"><ArrowLeft size={13} /> 목록으로 돌아가기</button>
-      <div className="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden">
+    <div className="max-w-2xl mx-auto space-y-3 animate-in slide-in-from-bottom-3 duration-300">
+      <button onClick={onBack} className="flex items-center gap-1 text-xs font-bold text-slate-500 hover:text-slate-800 bg-slate-100 px-3 py-1.5 rounded-lg w-fit"><ArrowLeft size={13} /> 목록으로 돌아가기</button>
+      <div className="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden mt-2">
         <div className="bg-indigo-50 px-5 py-3 border-b border-indigo-100 flex items-center justify-between">
           <span className="font-bold text-indigo-800 text-xs flex items-center gap-1.5"><Brain size={13} /> {data.subject} - {data.type === 'multiple' ? '객관식' : '단답형'}</span>
         </div>
@@ -580,9 +578,9 @@ function QuizDetailView({ data, onBack, onFail, onSuccess }) {
               </div>
               <div className="bg-slate-50 p-3.5 rounded-2xl border border-slate-200 text-xs">
                 <span className="font-bold text-slate-500 uppercase block mb-1">해설</span>
-                <p className="text-slate-700 leading-relaxed">{data.explanation}</p>
+                <p className="text-slate-700 leading-relaxed mt-1">{data.explanation}</p>
               </div>
-              <button onClick={onBack} className="w-full py-2.5 bg-slate-800 text-white font-bold rounded-2xl text-xs">목록으로</button>
+              <button onClick={onBack} className="w-full py-2.5 bg-slate-800 hover:bg-slate-900 text-white font-bold rounded-2xl text-xs mt-2">목록으로</button>
             </div>
           )}
         </div>
@@ -695,17 +693,17 @@ function GeneralStudyDetail({ data, onBack, onUpdateData, onDeleteData }) {
              />
              
              <div className="mb-1 text-[11px] font-bold text-emerald-700 flex items-center gap-1">
-                <Lightbulb size={12}/> 추출 키워드 편집 <span className="text-slate-400 font-medium">(마우스 드래그 시 자동 추가 및 본문 순서대로 정렬됩니다)</span>
+                <Lightbulb size={12}/> 추출 키워드 편집 <span className="text-slate-400 font-medium">(드래그 시 자동 추가)</span>
              </div>
              <input type="text" value={editData[keywordKey]} onChange={(e) => setEditData({...editData, [keywordKey]: e.target.value})} className="w-full bg-white border border-emerald-200 focus:border-emerald-500 outline-none text-xs p-2.5 rounded-xl mb-2" placeholder="쉼표로 구분 (예: 타낙, 구약성서)" />
              
              {currentKeywords.length > 0 && (
-               <div className="flex flex-wrap gap-1.5 mt-2 p-2 bg-white rounded-xl border border-emerald-100">
+               <div className="flex flex-wrap gap-1 mt-2 p-2 bg-white rounded-xl border border-emerald-100">
                  {currentKeywords.map((kw, i) => {
                    const isFound = currentText.includes(kw);
                    return (
                      <span key={i} className={`text-[10px] font-bold px-2 py-1 rounded-md border ${isFound ? 'bg-emerald-100 text-emerald-800 border-emerald-200' : 'bg-rose-50 text-rose-500 border-rose-200 line-through'}`}>
-                       {kw} {isFound ? '✓' : '(본문 없음)'}
+                       {kw} {isFound ? '✓' : '(없음)'}
                      </span>
                    )
                  })}
@@ -717,12 +715,12 @@ function GeneralStudyDetail({ data, onBack, onUpdateData, onDeleteData }) {
     return (
        <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm mb-3">
            <span className="bg-emerald-100 text-emerald-800 text-[11px] font-extrabold px-2.5 py-0.5 rounded-lg mb-2 inline-block">{section.title}</span>
-           <div className="text-xs sm:text-sm text-slate-700 mb-4 leading-loose break-keep whitespace-pre-wrap">
+           <div className="text-[13px] sm:text-sm text-slate-700 mb-4 leading-loose break-keep whitespace-pre-wrap">
              {highlightText(section.content, section.keywords)}
            </div>
            <div className="flex flex-wrap gap-1.5 items-center bg-slate-50 p-2 rounded-2xl border border-slate-100">
-              <span className="text-[11px] font-bold text-slate-500"><Lightbulb size={12} className="inline text-amber-500"/> 추출 키워드:</span>
-              {(section.keywords || []).map((kw, i) => <span key={i} className="bg-white border text-[11px] font-bold px-2.5 py-0.5 rounded-lg shadow-sm text-emerald-700">{kw}</span>)}
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">추출 키워드:</span>
+              {(section.keywords || []).map((kw, i) => <span key={i} className="bg-white border border-slate-200 text-[10px] font-bold px-2 py-0.5 rounded-md shadow-sm text-emerald-700">{kw}</span>)}
            </div>
        </div>
     );
@@ -743,38 +741,40 @@ function GeneralStudyDetail({ data, onBack, onUpdateData, onDeleteData }) {
   };
 
   return (
-    <div className="max-w-3xl mx-auto space-y-3 animate-in fade-in duration-300 pb-6">
-      <div className="flex justify-between items-center">
-        <button onClick={onBack} className="flex items-center gap-1 text-xs font-bold text-slate-500 hover:text-slate-800"><ArrowLeft size={13} /> 목록으로</button>
-        <div className="flex items-center gap-2">
+    <div className="max-w-3xl mx-auto space-y-3 animate-in fade-in duration-300">
+      <div className="flex justify-between items-center bg-white p-2 rounded-xl shadow-sm border border-slate-200 mb-2">
+        <button onClick={onBack} className="flex items-center gap-1.5 text-slate-500 hover:text-slate-800 hover:bg-slate-50 font-bold px-3 py-1.5 rounded-lg transition-colors text-xs">
+          <ArrowLeft size={14} /> 목록
+        </button>
+        <div className="flex items-center gap-1">
           {!isEditing ? (
             <>
-              <button onClick={handleEditStart} className="flex items-center gap-1.5 text-xs font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 px-3.5 py-1.5 rounded-xl border border-emerald-200"><PenTool size={12} /> 답안 수정</button>
-              <button onClick={() => { onDeleteData(data.id, 'essay'); onBack(); }} className="flex items-center gap-1.5 text-xs font-bold text-rose-600 bg-rose-50 hover:bg-rose-100 px-3.5 py-1.5 rounded-xl border border-rose-200"><Trash2 size={12} /> 삭제</button>
+              <button onClick={handleEditStart} className="flex items-center gap-1 text-[11px] font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 px-3 py-1.5 rounded-lg transition-colors"><PenTool size={12} /> 답안 수정</button>
+              <button onClick={() => { onDeleteData(data.id, 'essay'); onBack(); }} className="flex items-center gap-1 text-[11px] font-bold text-rose-600 bg-rose-50 hover:bg-rose-100 px-3 py-1.5 rounded-lg transition-colors"><Trash2 size={12} /> 삭제</button>
             </>
           ) : (
-            <button onClick={handleEditSave} className="flex items-center gap-1.5 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 px-4 py-1.5 rounded-xl shadow-sm"><CheckCircle size={13} /> 저장 완료</button>
+            <button onClick={handleEditSave} className="flex items-center gap-1 text-[11px] font-bold text-white bg-emerald-600 hover:bg-emerald-700 px-4 py-1.5 rounded-lg shadow-sm"><CheckCircle size={12} /> 저장</button>
           )}
         </div>
       </div>
 
-      <div className="bg-slate-800 text-white p-4 rounded-3xl shadow-sm border-l-4 border-l-emerald-500">
-        <span className="text-emerald-400 font-bold text-[11px] mb-1 block">과목: {data.subject}</span>
+      <div className="bg-slate-800 text-white p-4 rounded-2xl shadow-sm border-l-4 border-l-emerald-500">
+        <span className="text-emerald-400 font-bold text-[10px] uppercase mb-1 block">{data.subject}</span>
         {isEditing ? (
-          <textarea value={editData.question} onChange={(e) => setEditData({...editData, question: e.target.value})} className="w-full text-xs font-bold bg-slate-700 text-white p-2 rounded-xl" rows={2} />
+          <textarea value={editData.question} onChange={(e) => setEditData({...editData, question: e.target.value})} className="w-full text-[13px] font-bold bg-slate-700 text-white p-2.5 rounded-xl border border-slate-600 focus:border-emerald-500 outline-none" rows={2} />
         ) : (
-          <h3 className="text-xs sm:text-sm font-bold leading-relaxed">{data.question}</h3>
+          <h3 className="text-[13px] sm:text-sm font-bold leading-relaxed">{data.question}</h3>
         )}
       </div>
 
-      <div className="flex gap-1.5 bg-white p-1.5 rounded-3xl border border-slate-200">
+      <div className="flex bg-slate-100 p-1.5 rounded-2xl border border-slate-200">
         {[{ id: 1, title: '1. 뼈대 구조화' }, { id: 2, title: '2. 빈칸 인출' }, { id: 3, title: '3. 백지 논술' }].map(s => (
-          <button key={s.id} onClick={() => setStep(s.id)} className={`flex-1 p-2.5 rounded-2xl text-center transition-colors border text-xs font-bold ${step === s.id ? 'bg-emerald-50 border-emerald-500 text-emerald-800 shadow-sm' : 'border-transparent text-slate-500'}`}>{s.title}</button>
+          <button key={s.id} onClick={() => setStep(s.id)} className={`flex-1 py-2 rounded-xl text-center transition-colors text-[11px] sm:text-xs font-bold ${step === s.id ? 'bg-white shadow text-emerald-700' : 'text-slate-500 hover:bg-slate-200/50'}`}>{s.title}</button>
         ))}
       </div>
 
       {step === 1 && (
-        <div className="space-y-3 animate-in slide-in-from-bottom-2 bg-slate-50 p-4 rounded-3xl border border-slate-200">
+        <div className="space-y-3 animate-in slide-in-from-bottom-2 bg-slate-50 p-3 sm:p-4 rounded-2xl border border-slate-200">
            {renderStructureBox(data.parsedStructure?.intro || { title: '서론', content: '', keywords: [] }, 'intro')}
            {renderStructureBox(data.parsedStructure?.body || { title: '본론', content: '', keywords: [] }, 'body')}
            {renderStructureBox(data.parsedStructure?.conclusion || { title: '결론', content: '', keywords: [] }, 'conclusion')}
@@ -784,16 +784,16 @@ function GeneralStudyDetail({ data, onBack, onUpdateData, onDeleteData }) {
       {step === 2 && (
          <div className="bg-white p-4 rounded-3xl border border-slate-200 shadow-sm animate-in slide-in-from-bottom-2">
             <div className="flex justify-between items-center mb-4 text-xs font-bold text-slate-500">
-              <span>빈칸에 알맞은 키워드를 타이핑하세요.</span>
-              <div className="space-x-1.5">
-                <button onClick={() => setShowChoseong(!showChoseong)} className="px-3 py-1 bg-amber-50 text-amber-700 rounded-xl text-[11px]">초성 힌트</button>
-                <button onClick={handleShowAnswers} className="px-3 py-1 bg-emerald-50 text-emerald-700 rounded-xl text-[11px]">정답 보기</button>
+              <span>빈칸을 타이핑하세요.</span>
+              <div className="flex gap-1.5">
+                <button onClick={() => setShowChoseong(!showChoseong)} className="px-2.5 py-1.5 bg-amber-50 text-amber-700 rounded-lg text-[10px]">초성 힌트</button>
+                <button onClick={handleShowAnswers} className="px-2.5 py-1.5 bg-emerald-50 text-emerald-700 rounded-lg text-[10px]">정답 보기</button>
               </div>
             </div>
             
             <div className="space-y-4">
               {Array.isArray(data.blanks) ? (
-                <div className="leading-loose text-xs sm:text-sm text-slate-700 font-medium bg-slate-50 p-4 rounded-2xl border">
+                <div className="leading-loose text-[13px] sm:text-sm text-slate-700 font-medium bg-slate-50 p-4 rounded-2xl border">
                   {data.blanks.map((part, i) => {
                     if (!part.isBlank) return <span key={i}>{part.text}</span>;
                     const isSolved = solvedBlanks.has(i);
@@ -801,8 +801,8 @@ function GeneralStudyDetail({ data, onBack, onUpdateData, onDeleteData }) {
                       <span key={i} className="inline-block mx-1 px-2.5 py-1 rounded-xl bg-emerald-100 text-emerald-800 font-bold text-xs shadow-sm">{part.text}</span>
                     ) : (
                       <div key={i} className="inline-flex flex-col items-center mx-1.5 relative translate-y-1">
-                        {showChoseong && <span className="absolute -top-6 text-[11px] font-bold text-amber-600 bg-amber-50 px-2 py-0.5 rounded-lg border border-amber-200">{getChoseong(part.text)}</span>}
-                        <input type="text" value={blankInputs[i] || ''} onChange={(e) => handleInputChange(i, e.target.value, part.text)} placeholder="입력" className="px-2 py-1 text-center text-xs font-bold border-b-2 border-slate-400 focus:border-emerald-500 bg-white outline-none w-24 text-indigo-700" />
+                        {showChoseong && <span className="absolute -top-6 text-[10px] font-bold text-amber-600 bg-amber-50 px-2 py-0.5 rounded-md border border-amber-200">{getChoseong(part.text)}</span>}
+                        <input type="text" value={blankInputs[i] || ''} onChange={(e) => handleInputChange(i, e.target.value, part.text)} placeholder="입력" className="px-2 py-1 text-center text-xs font-bold border-b-2 border-slate-400 focus:border-emerald-500 bg-white outline-none w-20 sm:w-24 text-indigo-700 rounded-none" />
                       </div>
                     );
                   })}
@@ -813,19 +813,19 @@ function GeneralStudyDetail({ data, onBack, onUpdateData, onDeleteData }) {
                   const sectionTitle = secKey === 'intro' ? '서론' : secKey === 'body' ? '본론' : '결론';
 
                   return (
-                    <div key={secKey} className="bg-slate-50 p-4 rounded-2xl border border-slate-200">
-                      <span className="bg-emerald-100 text-emerald-800 text-[11px] font-extrabold px-2.5 py-0.5 rounded-lg mb-2 inline-block">{sectionTitle}</span>
-                      <div className="leading-loose text-xs sm:text-sm text-slate-700 font-medium break-keep">
+                    <div key={secKey} className="bg-slate-50 p-3 sm:p-4 rounded-2xl border border-slate-200">
+                      <span className="bg-emerald-100 text-emerald-800 text-[10px] font-extrabold px-2.5 py-0.5 rounded-lg mb-2 inline-block">{sectionTitle}</span>
+                      <div className="leading-loose text-[13px] sm:text-sm text-slate-700 font-medium break-keep">
                         {data.blanks[secKey].map((part, i) => {
                           const uniqueKey = `${secKey}_${i}`;
                           if (!part.isBlank) return <span key={uniqueKey}>{part.text}</span>;
                           const isSolved = solvedBlanks.has(uniqueKey);
                           return isSolved ? (
-                            <span key={uniqueKey} className="inline-block mx-1 px-2.5 py-1 rounded-xl bg-emerald-100 text-emerald-800 font-bold text-xs shadow-sm">{part.text}</span>
+                            <span key={uniqueKey} className="inline-block mx-1 px-2 py-0.5 rounded-lg bg-emerald-100 text-emerald-800 font-bold text-xs shadow-sm">{part.text}</span>
                           ) : (
-                            <div key={uniqueKey} className="inline-flex flex-col items-center mx-1.5 relative translate-y-1">
-                              {showChoseong && <span className="absolute -top-6 text-[11px] font-bold text-amber-600 bg-amber-50 px-2 py-0.5 rounded-lg border border-amber-200">{getChoseong(part.text)}</span>}
-                              <input type="text" value={blankInputs[uniqueKey] || ''} onChange={(e) => handleInputChange(uniqueKey, e.target.value, part.text)} placeholder="입력" className="px-2 py-1 text-center text-xs font-bold border-b-2 border-slate-400 focus:border-emerald-500 bg-white outline-none w-24 text-indigo-700" />
+                            <div key={uniqueKey} className="inline-flex flex-col items-center mx-1 relative translate-y-1">
+                              {showChoseong && <span className="absolute -top-6 text-[10px] font-bold text-amber-600 bg-amber-50 px-2 py-0.5 rounded-md border border-amber-200">{getChoseong(part.text)}</span>}
+                              <input type="text" value={blankInputs[uniqueKey] || ''} onChange={(e) => handleInputChange(uniqueKey, e.target.value, part.text)} placeholder="입력" className="px-1 py-0.5 text-center text-[11px] font-bold border-b-2 border-slate-400 focus:border-emerald-500 bg-white outline-none w-16 sm:w-20 text-indigo-700 rounded-none" />
                             </div>
                           );
                         })}
@@ -839,25 +839,25 @@ function GeneralStudyDetail({ data, onBack, onUpdateData, onDeleteData }) {
       )}
 
       {step === 3 && (
-        <div className="bg-white p-4 rounded-3xl border border-slate-200 shadow-sm">
-          <div className="flex justify-between items-center mb-2.5">
+        <div className="bg-white p-4 rounded-3xl border border-slate-200 shadow-sm animate-in slide-in-from-bottom-2">
+          <div className="flex justify-between items-center mb-3">
             <span className="text-xs font-bold text-slate-500">백지 논술 작성</span>
-            <button onClick={() => setShowHints(!showHints)} className="text-[11px] font-bold px-3 py-1 bg-amber-50 text-amber-700 rounded-xl">뼈대 힌트 {showHints ? '끄기' : '켜기'}</button>
+            <button onClick={() => setShowHints(!showHints)} className="text-[10px] font-bold px-2.5 py-1 bg-amber-50 text-amber-700 rounded-lg">뼈대 힌트 {showHints ? '끄기' : '켜기'}</button>
           </div>
           {showHints && data.parsedStructure && (
-            <div className="mb-3 bg-amber-50 p-3 rounded-2xl border border-amber-200 text-xs space-y-2">
+            <div className="mb-3 bg-amber-50/80 p-3 rounded-xl border border-amber-100 text-xs space-y-2">
               {[data.parsedStructure.intro, data.parsedStructure.body, data.parsedStructure.conclusion].map((sec, idx) => {
                  if(!sec) return null;
                  return (
-                 <div key={idx} className="flex gap-2 items-center">
-                    <span className="text-[11px] font-bold bg-amber-200 text-amber-900 px-2.5 py-0.5 rounded-lg">{sec.title}</span>
-                    <span className="text-xs text-amber-800 font-medium">{(sec.keywords || []).join(', ')}</span>
+                 <div key={idx} className="flex gap-2 items-start">
+                    <span className="text-[10px] font-bold bg-amber-200 text-amber-900 px-2 py-0.5 rounded shrink-0 mt-0.5">{sec.title}</span>
+                    <span className="text-[11px] text-amber-800 font-medium leading-relaxed">{(sec.keywords || []).join(', ')}</span>
                  </div>
                  )
               })}
             </div>
           )}
-          <textarea value={typedAnswer} onChange={(e) => setTypedAnswer(e.target.value)} placeholder="뼈대 힌트를 참고하여 답안을 작성해보세요." className="w-full min-h-[140px] p-3.5 border rounded-2xl text-xs focus:outline-none focus:border-emerald-500 bg-slate-50 leading-relaxed" />
+          <textarea value={typedAnswer} onChange={(e) => setTypedAnswer(e.target.value)} placeholder="뼈대 힌트를 참고하여 답안을 작성해보세요." className="w-full min-h-[160px] p-3 border border-slate-200 rounded-xl text-[13px] focus:outline-none focus:border-emerald-500 bg-slate-50 leading-relaxed resize-y" />
         </div>
       )}
     </div>
@@ -869,9 +869,9 @@ function GeneralReviewTab({ reviewList, onFail, onSuccess }) {
 
   if (reviewList.length === 0) {
     return (
-      <div className="text-center py-8 animate-in fade-in">
-        <CheckCircle size={24} className="mx-auto mb-1.5 text-emerald-300" />
-        <div className="text-slate-500 font-bold text-xs">일반 과목 오답이 없습니다.</div>
+      <div className="text-center py-10 animate-in fade-in">
+        <CheckCircle size={32} className="mx-auto mb-2 text-emerald-300" />
+        <div className="text-slate-500 font-bold text-sm">일반 과목 오답이 없습니다.</div>
       </div>
     );
   }
@@ -889,22 +889,22 @@ function GeneralReviewTab({ reviewList, onFail, onSuccess }) {
   }, {});
 
   return (
-    <div className="max-w-4xl mx-auto space-y-3 animate-in fade-in duration-300 pb-6">
-      <div className="bg-rose-50 p-4 rounded-3xl border border-rose-100 mb-2">
-        <h2 className="text-xs font-bold text-rose-900 mb-1 flex items-center gap-1.5"><Repeat size={13}/> 과목별 오답 노트</h2>
+    <div className="max-w-4xl mx-auto space-y-3 animate-in fade-in duration-300">
+      <div className="bg-rose-50 p-4 rounded-3xl border border-rose-100 mb-4">
+        <h2 className="text-sm font-bold text-rose-900 mb-1 flex items-center gap-1.5"><Repeat size={14}/> 과목별 오답 노트</h2>
         <p className="text-rose-700 text-xs">틀린 문제를 맞히면 오답 노트에서 자동 제외됩니다.</p>
       </div>
 
       {Object.entries(groupedData).map(([subjectName, items]) => (
-        <div key={subjectName} className="mb-3.5">
-          <h3 className="text-xs font-extrabold px-3.5 py-1.5 rounded-t-2xl inline-block text-rose-800 bg-rose-100 border border-rose-200">
+        <div key={subjectName} className="mb-4">
+          <h3 className="text-xs font-extrabold px-3 py-1.5 rounded-t-xl inline-block text-rose-800 bg-rose-100 border border-rose-200">
             📁 {subjectName} ({items.length})
           </h3>
-          <div className="p-3 rounded-b-3xl rounded-tr-3xl border space-y-2.5 bg-rose-50/20 border-rose-100">
+          <div className="p-3 rounded-b-2xl rounded-tr-2xl border space-y-2 bg-rose-50/20 border-rose-100">
             {items.map(item => (
-              <div key={item.id} onClick={() => setSelectedId(item.id)} className="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-sm cursor-pointer flex justify-between items-start gap-3 hover:border-rose-400">
-                <span className="text-xs font-bold text-slate-800 flex-1 leading-relaxed break-keep whitespace-normal">{item.question}</span>
-                <span className="text-xs font-bold text-rose-600 flex items-center gap-1 shrink-0 mt-0.5">다시 풀기 <ChevronRight size={14}/></span>
+              <div key={item.id} onClick={() => setSelectedId(item.id)} className="bg-white p-3 rounded-xl border border-slate-200 shadow-sm cursor-pointer flex justify-between items-start gap-3 hover:border-rose-400 transition-colors">
+                <span className="text-[13px] font-bold text-slate-800 flex-1 leading-relaxed break-keep whitespace-normal">{item.question}</span>
+                <span className="text-[11px] font-bold text-rose-600 flex items-center gap-0.5 shrink-0 mt-0.5 bg-rose-50 px-2 py-1 rounded-lg">다시 풀기 <ChevronRight size={12}/></span>
               </div>
             ))}
           </div>
