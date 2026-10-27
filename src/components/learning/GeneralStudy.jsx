@@ -5,7 +5,7 @@ import { getChoseong } from '../../utils/learningData';
 import { 
   UploadCloud, List, Repeat, PenTool, Brain, CheckSquare, 
   ArrowLeft, Lightbulb, ChevronRight, CheckCircle, XCircle,
-  FileText, RefreshCw, Trash2
+  FileText, RefreshCw, Trash2, ChevronUp
 } from 'lucide-react';
 
 const parseAIResponse = (text) => {
@@ -87,15 +87,47 @@ export default function GeneralStudy({ onBack, onNavigate }) {
   const [quizData, setQuizData] = useState([]); 
   const [generalReviewList, setGeneralReviewList] = useState([]); 
 
+  // 🚀 플로팅 상단 이동 버튼 상태 추가
+  const [showTopBtn, setShowTopBtn] = useState(false);
+
   useEffect(() => {
     fetchMyData();
+
+    // 🚀 스크롤 이벤트 감지
+    const handleScroll = () => {
+      const currentScrollY = document.documentElement.scrollTop || document.body.scrollTop || document.querySelector('main')?.scrollTop || 0;
+      if (currentScrollY > 300) {
+        setShowTopBtn(true);
+      } else {
+        setShowTopBtn(false);
+      }
+    };
+
+    const mainContainer = document.querySelector('main');
+    if(mainContainer) mainContainer.addEventListener('scroll', handleScroll);
+    window.addEventListener('scroll', handleScroll);
+
+    return () => {
+      if(mainContainer) mainContainer.removeEventListener('scroll', handleScroll);
+      window.removeEventListener('scroll', handleScroll);
+    };
   }, []);
+
+  const scrollToTop = () => {
+    const mainContainer = document.querySelector('main');
+    if(mainContainer) {
+      mainContainer.scrollTo({ top: 0, behavior: 'smooth' });
+    } else {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  };
 
   const fetchMyData = async () => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
     const [essaysRes, quizzesRes, reviewsRes] = await Promise.all([
+      // 🚀 모든 쿼리를 역순 정렬(가장 최근 데이터가 가장 위에 노출되도록) 유지
       supabase.from('general_essays').select('*').eq('user_id', user.id).order('created_at', { ascending: false }),
       supabase.from('general_quizzes').select('*').eq('user_id', user.id).order('created_at', { ascending: false }),
       supabase.from('general_reviews').select('*').eq('user_id', user.id).order('created_at', { ascending: false })
@@ -193,6 +225,7 @@ ${payload.type === 'text'
       if (error) throw error;
 
       const formattedItems = newItems.map(item => ({ ...item, parsedStructure: item.parsed_structure }));
+      // 🚀 새 데이터가 항상 맨 위(최신순)로 가도록 prev 앞에 전개
       setGeneralData(prev => [...formattedItems, ...prev]);
       
       showToast(`AI 분석 완료! ${newItems.length}개의 문제가 분류되어 저장되었습니다.`);
@@ -240,6 +273,26 @@ ${payload.type === 'text'
     }
   };
 
+  // 🚀 대량 삭제 기능 유지
+  const handleBulkDeleteData = async (ids, mode) => {
+    if (ids.length === 0) return;
+    if (!window.confirm(`선택한 ${ids.length}개의 문제를 정말 삭제하시겠습니까?`)) return;
+    
+    if (mode === 'essay') {
+      const { error } = await supabase.from('general_essays').delete().in('id', ids);
+      if (!error) {
+        setGeneralData(prev => prev.filter(item => !ids.includes(item.id)));
+        showToast(`${ids.length}개의 문제가 삭제되었습니다.`);
+      }
+    } else {
+      const { error } = await supabase.from('general_quizzes').delete().in('id', ids);
+      if (!error) {
+        setQuizData(prev => prev.filter(item => !ids.includes(item.id)));
+        showToast(`${ids.length}개의 문제가 삭제되었습니다.`);
+      }
+    }
+  };
+
   const handleGeneralFail = async (item) => {
     const { data: { user } } = await supabase.auth.getUser();
     if (generalReviewList.some(r => r.id === item.id)) return;
@@ -251,7 +304,7 @@ ${payload.type === 'text'
     };
 
     await supabase.from('general_reviews').insert(reviewRecord);
-    setGeneralReviewList(prev => [...prev, { reviewId: reviewRecord.id, ...item }]);
+    setGeneralReviewList(prev => [{ reviewId: reviewRecord.id, ...item }, ...prev]); // 🚀 오답노트도 추가 시 역순
   };
 
   const handleGeneralSuccess = async (id) => {
@@ -263,10 +316,9 @@ ${payload.type === 'text'
   };
 
   return (
-    // 🚀 하단 네비게이션바에 가리지 않도록 pb-32 여백 추가
     <div className="max-w-6xl mx-auto animate-in slide-in-from-right-4 duration-300 relative pb-32">
       
-      {/* 🚀 공간 절약을 위해 뒤로가기와 탭을 한 줄로 결합 (모바일 최적화) */}
+      {/* 컴팩트 네비게이션 */}
       <div className="flex items-center justify-between bg-white p-1.5 rounded-2xl shadow-sm border border-slate-200 mb-4 gap-2">
         {onBack && (
           <button 
@@ -297,7 +349,7 @@ ${payload.type === 'text'
         </div>
       )}
 
-      {/* 🚀 서브 메뉴 탭 패딩 축소로 공간 확보 */}
+      {/* 탭 네비게이션 */}
       <div className="flex bg-white p-1.5 rounded-2xl shadow-sm border border-slate-200 mb-5 overflow-x-auto no-scrollbar">
          <button onClick={() => setGeneralTab('upload')} className={`flex-1 px-3 py-2.5 text-[11px] sm:text-xs font-black rounded-xl transition-all ${generalTab === 'upload' ? 'bg-emerald-50 text-emerald-700 shadow-sm' : 'text-slate-500 hover:bg-slate-50'}`}>문제/답안 등록</button>
          <button onClick={() => setGeneralTab('study')} className={`flex-1 px-3 py-2.5 text-[11px] sm:text-xs font-black rounded-xl transition-all ${generalTab === 'study' ? 'bg-emerald-50 text-emerald-700 shadow-sm' : 'text-slate-500 hover:bg-slate-50'}`}>
@@ -328,6 +380,7 @@ ${payload.type === 'text'
             quizList={quizData}
             onUpdateData={handleUpdateData}
             onDeleteData={handleDeleteData}
+            onBulkDelete={handleBulkDeleteData} // 대량 삭제 프롭스 전달
             onFail={handleGeneralFail}
             onSuccess={handleGeneralSuccess}
           />
@@ -340,6 +393,17 @@ ${payload.type === 'text'
           onFail={handleGeneralFail}
           onSuccess={handleGeneralSuccess}
         />
+      )}
+
+      {/* 🚀 플로팅 위로 가기 버튼 */}
+      {showTopBtn && (
+        <button 
+          onClick={scrollToTop}
+          className="fixed bottom-24 right-5 bg-indigo-500 hover:bg-indigo-600 text-white p-3 rounded-full shadow-xl transition-all z-50 animate-in fade-in slide-in-from-bottom-5 hover:-translate-y-1"
+          aria-label="위로 가기"
+        >
+          <ChevronUp size={24} strokeWidth={3} />
+        </button>
       )}
     </div>
   );
@@ -435,9 +499,16 @@ function GeneralUploadTab({ onUpload }) {
   );
 }
 
-function GeneralStudyTab({ dataList, quizList, onUpdateData, onDeleteData, onFail, onSuccess }) {
+function GeneralStudyTab({ dataList, quizList, onUpdateData, onDeleteData, onBulkDelete, onFail, onSuccess }) {
   const [selectedId, setSelectedId] = useState(null);
   const [studyMode, setStudyMode] = useState('essay'); 
+
+  // 🚀 대량 삭제 State 추가
+  const [selectedItems, setSelectedItems] = useState(new Set());
+
+  useEffect(() => {
+    setSelectedItems(new Set());
+  }, [studyMode]);
 
   if(dataList.length === 0 && quizList.length === 0) return (
     <div className="text-center py-10 animate-in fade-in">
@@ -446,12 +517,27 @@ function GeneralStudyTab({ dataList, quizList, onUpdateData, onDeleteData, onFai
     </div>
   );
 
-  const groupedData = (studyMode === 'essay' ? dataList : quizList).reduce((acc, item) => {
+  const currentList = studyMode === 'essay' ? dataList : quizList;
+  const groupedData = currentList.reduce((acc, item) => {
     const subj = item.subject || '미분류';
     if (!acc[subj]) acc[subj] = [];
     acc[subj].push(item);
     return acc;
   }, {});
+
+  const toggleItemSelect = (id) => {
+    const newSet = new Set(selectedItems);
+    newSet.has(id) ? newSet.delete(id) : newSet.add(id);
+    setSelectedItems(newSet);
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedItems.size === currentList.length) {
+      setSelectedItems(new Set());
+    } else {
+      setSelectedItems(new Set(currentList.map(s => s.id)));
+    }
+  };
 
   if (!selectedId) {
     return (
@@ -461,6 +547,30 @@ function GeneralStudyTab({ dataList, quizList, onUpdateData, onDeleteData, onFai
            <button onClick={() => setStudyMode('quiz')} className={`flex-1 sm:flex-none px-6 py-2 text-xs font-bold rounded-xl transition-all ${studyMode === 'quiz' ? 'bg-white shadow text-indigo-700' : 'text-slate-500'}`}><CheckSquare size={13} className="inline mr-1"/> 객관식/단답형</button>
         </div>
         
+        {/* 🚀 대량 삭제 컨트롤 바 */}
+        <div className="flex justify-between items-center bg-white p-3 rounded-2xl shadow-sm border border-slate-200 mb-2">
+          <label className="flex items-center gap-2 cursor-pointer text-xs font-bold text-slate-600 hover:text-slate-800 transition-colors pl-1">
+            <input 
+              type="checkbox" 
+              checked={currentList.length > 0 && selectedItems.size === currentList.length} 
+              onChange={toggleSelectAll} 
+              className={`w-4 h-4 rounded border-slate-300 focus:ring-${studyMode === 'essay' ? 'emerald' : 'indigo'}-500 text-${studyMode === 'essay' ? 'emerald' : 'indigo'}-600`} 
+            />
+            전체 선택
+          </label>
+          {selectedItems.size > 0 && (
+            <button 
+              onClick={() => {
+                onBulkDelete(Array.from(selectedItems), studyMode);
+                setSelectedItems(new Set());
+              }} 
+              className="bg-rose-50 text-rose-600 hover:bg-rose-100 hover:text-rose-700 px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-colors"
+            >
+              <Trash2 size={13} /> 선택 삭제 ({selectedItems.size})
+            </button>
+          )}
+        </div>
+
         {Object.entries(groupedData).map(([subjectName, items]) => (
           <div key={subjectName} className="mb-4">
             <h3 className={`text-xs font-extrabold px-3 py-1.5 rounded-t-xl inline-block border-t border-l border-r ${studyMode === 'essay' ? 'text-emerald-800 bg-emerald-100 border-emerald-200' : 'text-indigo-800 bg-indigo-100 border-indigo-200'}`}>
@@ -468,14 +578,25 @@ function GeneralStudyTab({ dataList, quizList, onUpdateData, onDeleteData, onFai
             </h3>
             <div className={`p-3 rounded-b-2xl rounded-tr-2xl border space-y-2 ${studyMode === 'essay' ? 'bg-emerald-50/20 border-emerald-100' : 'bg-indigo-50/20 border-indigo-100'}`}>
               {items.map(item => (
-                <div key={item.id} className="bg-white p-3 rounded-xl border border-slate-200 shadow-sm transition-all group flex items-start justify-between gap-3 hover:border-emerald-400 hover:shadow-md">
-                  <div onClick={() => setSelectedId(item.id)} className="flex-1 flex items-start gap-2.5 cursor-pointer min-w-0 py-1">
+                <div key={item.id} className={`bg-white p-3 rounded-xl shadow-sm transition-all group flex items-start justify-between gap-3 hover:border-emerald-400 border ${selectedItems.has(item.id) ? (studyMode === 'essay' ? 'border-emerald-300 bg-emerald-50/10' : 'border-indigo-300 bg-indigo-50/10') : 'border-slate-200'}`}>
+                  <div className="flex-1 flex items-start gap-2.5 min-w-0 py-1">
+                    {/* 체크박스 */}
+                    <input 
+                      type="checkbox" 
+                      checked={selectedItems.has(item.id)} 
+                      onChange={() => toggleItemSelect(item.id)} 
+                      className={`w-4 h-4 rounded border-slate-300 cursor-pointer mt-0.5 focus:ring-${studyMode === 'essay' ? 'emerald' : 'indigo'}-500 text-${studyMode === 'essay' ? 'emerald' : 'indigo'}-600`}
+                    />
                     {studyMode === 'quiz' && <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md shrink-0 mt-0.5 ${item.type === 'multiple' ? 'bg-indigo-100 text-indigo-700' : 'bg-amber-100 text-amber-700'}`}>{item.type === 'multiple' ? '객관식' : '단답형'}</span>}
-                    <h4 className="text-[13px] font-bold text-slate-800 group-hover:text-emerald-700 transition-colors leading-relaxed break-keep whitespace-normal">{item.question}</h4>
+                    
+                    {/* 제목 클릭 시에만 상세화면 이동하도록 변경 */}
+                    <h4 onClick={() => setSelectedId(item.id)} className="cursor-pointer text-[13px] font-bold text-slate-800 group-hover:text-emerald-700 transition-colors leading-relaxed break-keep whitespace-normal">
+                      {item.question}
+                    </h4>
                   </div>
                   <div className="flex items-center gap-1 shrink-0 mt-0.5">
-                    <button onClick={() => setSelectedId(item.id)} className="text-[11px] font-bold text-slate-400 group-hover:text-emerald-600 flex items-center bg-slate-50 group-hover:bg-emerald-50 px-2 py-1.5 rounded-lg transition-colors">학습하기 <ChevronRight size={12} /></button>
-                    <button onClick={(e) => { e.stopPropagation(); onDeleteData(item.id, studyMode === 'essay' ? 'essay' : 'quiz'); }} className="p-1.5 text-gray-300 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-colors" title="문제 삭제">
+                    <button onClick={() => setSelectedId(item.id)} className="text-[11px] font-bold text-slate-400 group-hover:text-emerald-600 flex items-center bg-slate-50 group-hover:bg-emerald-50 px-2 py-1.5 rounded-lg transition-colors">학습 <ChevronRight size={12} /></button>
+                    <button onClick={(e) => { e.stopPropagation(); onDeleteData(item.id, studyMode); }} className="p-1.5 text-gray-300 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-colors" title="문제 삭제">
                       <Trash2 size={14} />
                     </button>
                   </div>

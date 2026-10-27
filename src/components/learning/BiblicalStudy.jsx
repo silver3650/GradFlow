@@ -6,7 +6,7 @@ import {
   UploadCloud, Search, BookMarked, Repeat, Play, Volume2, 
   EyeOff, Brain, Trash2, CheckCircle, XCircle, BookOpen, 
   Zap, RefreshCw, Globe, CheckSquare, Square, X, Plus, 
-  Settings, Lightbulb, FileText, ArrowLeft, AlignLeft, AlertCircle, Loader2, Edit3, Save
+  Settings, Lightbulb, FileText, ArrowLeft, AlignLeft, AlertCircle, Loader2, Edit3, Save, ChevronUp
 } from 'lucide-react';
 
 // 🚀 [궁극의 AI 복구 파서] 잘린 JSON 꼬리, 쓰레기 문자, 쉼표 누락을 모두 잡아냅니다.
@@ -75,15 +75,47 @@ export default function BiblicalStudy({ onBack, onNavigate }) {
   const [drillQueue, setDrillQueue] = useState([]);
   const [currentDrillMode, setCurrentDrillMode] = useState('lemma');
 
+  // 🚀 플로팅 상단 이동 버튼 상태 추가
+  const [showTopBtn, setShowTopBtn] = useState(false);
+
   useEffect(() => {
     fetchBiblicalData();
+
+    // 🚀 스크롤 이벤트 감지
+    const handleScroll = () => {
+      const currentScrollY = document.documentElement.scrollTop || document.body.scrollTop || document.querySelector('main')?.scrollTop || 0;
+      if (currentScrollY > 300) {
+        setShowTopBtn(true);
+      } else {
+        setShowTopBtn(false);
+      }
+    };
+
+    const mainContainer = document.querySelector('main');
+    if(mainContainer) mainContainer.addEventListener('scroll', handleScroll);
+    window.addEventListener('scroll', handleScroll);
+
+    return () => {
+      if(mainContainer) mainContainer.removeEventListener('scroll', handleScroll);
+      window.removeEventListener('scroll', handleScroll);
+    };
   }, []);
+
+  const scrollToTop = () => {
+    const mainContainer = document.querySelector('main');
+    if(mainContainer) {
+      mainContainer.scrollTo({ top: 0, behavior: 'smooth' });
+    } else {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  };
 
   const fetchBiblicalData = async () => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
     const [sentencesRes, vocabRes, reviewsRes] = await Promise.all([
+      // 🚀 역순 정렬 확실히 보장 (가장 최근 등록된 단어가 맨 앞으로)
       supabase.from('biblical_sentences').select('*').eq('user_id', user.id).order('created_at', { ascending: false }),
       supabase.from('biblical_vocab').select('*').eq('user_id', user.id).order('created_at', { ascending: false }),
       supabase.from('biblical_reviews').select('*').eq('user_id', user.id).order('created_at', { ascending: false })
@@ -207,7 +239,6 @@ ${payload.type === 'text' ? payload.content : payload.fileContent}
     }
   };
 
-  // 🚀 [수정] 문장 수정 텍스트를 인자로 받아 먼저 DB에 업데이트 한 뒤 재분석을 수행하도록 로직 강화
   const handleReparseSentence = async (sentence, newOriginalText = null) => {
     setReparsingId(sentence.id);
     const targetText = newOriginalText || sentence.original;
@@ -261,7 +292,7 @@ ${targetText}
 
       const { error } = await supabase
         .from('biblical_sentences')
-        .update({ original: targetText, words: newWords }) // 텍스트와 단어목록 모두 업데이트
+        .update({ original: targetText, words: newWords }) 
         .eq('id', sentence.id);
 
       if (error) throw error;
@@ -290,7 +321,15 @@ ${targetText}
       meaning: w.meaning,
       pronunciation: w.pronunciation,
       sentence_context: w.sentenceContext,
-      sentence_translation: w.sentenceTranslation
+      sentence_translation: w.sentenceTranslation,
+      // 🚀 세부 속성도 누락 없이 DB에 저장
+      tense: w.tense,
+      voice: w.voice,
+      mood: w.mood,
+      person: w.person,
+      number: w.number,
+      gender: w.gender,
+      case: w.case
     }));
 
     if (newVocabs.length === 0) {
@@ -303,6 +342,7 @@ ${targetText}
       const stateVocabs = newVocabs.map(v => ({
         ...v, sentenceContext: v.sentence_context, sentenceTranslation: v.sentence_translation
       }));
+      // 🚀 새 단어를 배열의 '맨 앞'에 추가하여 최신순 정렬 유지
       setVocabulary(prev => [...stateVocabs, ...prev]);
       showToast(`${newVocabs.length}개의 단어가 추가되었습니다.`);
     }
@@ -328,7 +368,7 @@ ${targetText}
     };
 
     await supabase.from('biblical_reviews').insert(reviewRecord);
-    setReviewList(prev => [...prev, { id: reviewRecord.id, wordObj, failedMode: mode }]);
+    setReviewList(prev => [{ id: reviewRecord.id, wordObj, failedMode: mode }, ...prev]); // 오답노트도 최신순
   };
 
   const handleRemoveReview = async (id) => {
@@ -353,7 +393,6 @@ ${targetText}
     }
   };
 
-  // 🚀 [신규] 체크된 문장들 대량 삭제
   const handleBulkDeleteSentences = async (ids) => {
     if (ids.length === 0) return;
     if (!window.confirm(`선택한 ${ids.length}개의 문장을 정말 삭제하시겠습니까?`)) return;
@@ -454,7 +493,7 @@ ${targetText}
             onAddVocab={handleAddVocab} 
             globalLang={globalLang} 
             onDelete={handleDeleteSentence}
-            onBulkDelete={handleBulkDeleteSentences} // 대량 삭제 프롭스
+            onBulkDelete={handleBulkDeleteSentences} 
             onReparse={handleReparseSentence}     
             reparsingId={reparsingId}             
           />
@@ -464,6 +503,17 @@ ${targetText}
       {biblicalTab === 'vocab' && <VocabTab vocabulary={filteredVocab} showPhonetics={showPhonetics} onStartDrill={startDrill} onRemoveVocab={handleRemoveVocab} />}
       {biblicalTab === 'review' && <ReviewTab reviewList={filteredReview} onRemoveReview={handleRemoveReview} showPhonetics={showPhonetics} onStartDrill={startDrill} />}
       {biblicalTab === 'drill' && <DrillTab queue={drillQueue} mode={currentDrillMode} showPhonetics={showPhonetics} onComplete={() => setBiblicalTab('vocab')} onFail={handleAddReview} />}
+
+      {/* 🚀 플로팅 위로 가기 버튼 */}
+      {showTopBtn && (
+        <button 
+          onClick={scrollToTop}
+          className="fixed bottom-24 right-5 bg-indigo-500 hover:bg-indigo-600 text-white p-3 rounded-full shadow-xl transition-all z-50 animate-in fade-in slide-in-from-bottom-5 hover:-translate-y-1"
+          aria-label="위로 가기"
+        >
+          <ChevronUp size={24} strokeWidth={3} />
+        </button>
+      )}
     </div>
   );
 }
@@ -526,7 +576,7 @@ function BiblicalUploadTab({ onUpload }) {
       <div className="bg-slate-800 p-4 rounded-3xl text-white shadow-md relative overflow-hidden">
         <div className="relative z-10">
           <h2 className="text-sm font-bold mb-1 flex items-center gap-1.5"><Brain size={15} className="text-indigo-400" /> 성서 원어 AI 파서</h2>
-          <p className="text-slate-300 text-[11px] leading-relaxed max-w-lg">그리스어(헬라어) 및 히브리어 텍스트를 입력하면 단어 단위로 문법을 파싱합니다. <span className="text-indigo-300 font-bold">대량의 문장이나 복사해온 문제지 내용도 알아서 원어만 필터링합니다.</span></p>
+          <p className="text-slate-300 text-[11px] leading-relaxed max-w-lg">그리스어(헬라어) 및 히브리어 텍스트를 입력하면 단어 단위로 문법을 자동 파싱합니다. <span className="text-indigo-300 font-bold">대량의 문장이나 복사해온 문제지 내용도 알아서 원어만 필터링합니다.</span></p>
         </div>
       </div>
 
@@ -582,10 +632,7 @@ function SentencesTab({ sentences, showPhonetics, onAddVocab, globalLang, onDele
   const [selectedWordIds, setSelectedWordIds] = useState(new Set());
   const [activePopupWord, setActivePopupWord] = useState(null); 
   
-  // 🚀 대량 삭제를 위한 문장 선택 State
   const [selectedSentenceIds, setSelectedSentenceIds] = useState(new Set());
-  
-  // 🚀 인라인 편집을 위한 State
   const [editingSentenceId, setEditingSentenceId] = useState(null);
   const [editingSentenceText, setEditingSentenceText] = useState('');
 
@@ -635,7 +682,6 @@ function SentencesTab({ sentences, showPhonetics, onAddVocab, globalLang, onDele
   return (
     <div className="space-y-4 animate-in fade-in duration-300">
       
-      {/* 🚀 상단 전체 선택 및 대량 삭제 컨트롤 바 */}
       <div className="flex justify-between items-center bg-white p-3 rounded-2xl shadow-sm border border-slate-200">
         <label className="flex items-center gap-2 cursor-pointer text-xs font-bold text-slate-600 hover:text-slate-800 transition-colors pl-1">
           <input 
@@ -680,7 +726,6 @@ function SentencesTab({ sentences, showPhonetics, onAddVocab, globalLang, onDele
                 <LanguageBadge language={sentence.language} />
               </div>
               
-              {/* 🚀 문장 수정 / 재분석 / 삭제 버튼 그룹 */}
               {editingSentenceId === sentence.id ? (
                 <div className="flex items-center gap-1.5">
                   <button 
@@ -725,7 +770,6 @@ function SentencesTab({ sentences, showPhonetics, onAddVocab, globalLang, onDele
               )}
             </div>
 
-            {/* 🚀 인라인 텍스트 편집 영역 */}
             {editingSentenceId === sentence.id ? (
               <div className="mb-3">
                 <textarea 
@@ -785,7 +829,6 @@ function SentencesTab({ sentences, showPhonetics, onAddVocab, globalLang, onDele
               </div>
             )}
 
-            {/* 고정형 단어 분석 패널 */}
             {activeWord && !isEmptyWords && !editingSentenceId && (
               <div className="mt-4 pt-4 border-t border-slate-100 animate-in fade-in slide-in-from-top-2 duration-200">
                 <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 shadow-inner">
@@ -936,7 +979,7 @@ function LanguageBadge({ language }) {
 function WordCard({ item, showPhonetics, onRemove }) {
   const isRTL = item.language === 'hebrew';
   return (
-    <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex flex-col relative h-full">
+    <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex flex-col relative h-full transition-colors hover:border-indigo-300">
       <button onClick={onRemove} className="absolute top-2.5 right-2.5 text-slate-300 hover:text-rose-500 bg-slate-50 p-1.5 rounded-full transition-colors"><Trash2 size={13} /></button>
       <LanguageBadge language={item.language} />
       
@@ -956,13 +999,29 @@ function WordCard({ item, showPhonetics, onRemove }) {
           <span className="text-slate-400 font-bold">의미</span>
           <span className="font-bold text-emerald-700 text-xs">{item.meaning}</span>
         </div>
+        
+        {/* 🚀 단어장/오답노트 하단에 상세 파싱(배지) 노출 추가 */}
+        <div className="flex flex-wrap gap-1.5 pt-1.5 px-1 border-t border-slate-50">
+          <AlignLeft size={12} className="text-slate-400 mt-0.5 mr-0.5" />
+          {['tense', 'voice', 'mood', 'person', 'number', 'gender', 'case'].map(key => {
+            if (!item[key]) return null;
+            // 🚀 영어 필터링 적용
+            const cleanVal = cleanGrammarText(item[key]);
+            if (!cleanVal) return null;
+            return (
+              <span key={key} className="bg-slate-100 text-slate-600 text-[10px] font-bold px-1.5 py-0.5 rounded border border-slate-200 shadow-sm">
+                {cleanVal}
+              </span>
+            );
+          })}
+        </div>
       </div>
 
       {item.sentenceContext && (
         <div className="mt-auto pt-1.5 border-t border-slate-100 flex flex-col">
-          <div className="text-xs font-serif text-slate-500 bg-slate-50 p-1.5 rounded-t-xl truncate" dir={isRTL ? 'rtl' : 'ltr'}>{item.sentenceContext}</div>
+          <div className="text-[11px] font-serif text-slate-500 bg-slate-50 p-1.5 rounded-t-xl truncate" dir={isRTL ? 'rtl' : 'ltr'}>{item.sentenceContext}</div>
           {item.sentenceTranslation && (
-            <div className="text-xs font-medium text-slate-600 bg-slate-100 p-1.5 rounded-b-xl border-t border-slate-200/50 truncate" dir="ltr">"{item.sentenceTranslation}"</div>
+            <div className="text-[11px] font-medium text-slate-600 bg-slate-100 p-1.5 rounded-b-xl border-t border-slate-200/50 truncate" dir="ltr">"{item.sentenceTranslation}"</div>
           )}
         </div>
       )}
