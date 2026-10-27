@@ -1,18 +1,26 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from './supabaseClient';
-import { LayoutDashboard, BookOpen, Calendar, User, GraduationCap, Bell, ShieldCheck } from 'lucide-react';
+import { LayoutDashboard, BookOpen, Calendar, User, GraduationCap, Bell, Brain } from 'lucide-react';
 
 import Dashboard from './pages/Dashboard';
 import Coursework from './pages/Coursework';
 import CalendarView from './pages/CalendarView';
 import Profile from './pages/Profile';
 import AuthScreen from './pages/AuthScreen';
-import AdminDashboard from './pages/AdminDashboard'; // 🚀 관리자 페이지 추가
+import AdminDashboard from './pages/AdminDashboard'; // 관리자 컴포넌트 추가
+
+// 🚀 분리된 학습 코칭 컴포넌트들 불러오기
+import DashboardHome from './components/learning/LearningDashboard'; // 대시보드 홈 (기존 내용 유지)
+import GeneralStudy from './components/learning/GeneralStudy';
+import BiblicalStudy from './components/learning/BiblicalStudy';
 
 export default function App() {
   const [session, setSession] = useState(null);
   const [isAuthLoading, setIsAuthLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState('dashboard');
+  
+  // 🚀 모든 탭과 하위 뷰를 하나의 상태(activeTab)로 통일하여 관리합니다.
+  const [activeTab, setActiveTab] = useState('dashboard'); 
+  
   const [courses, setCourses] = useState([]);
   const [coursework, setCoursework] = useState([]);
   const [userProfile, setUserProfile] = useState({});
@@ -46,7 +54,7 @@ export default function App() {
       if (event === 'SIGNED_OUT') {
         setProviderToken(null);
         localStorage.removeItem('google_provider_token');
-        setUserProfile({}); // 로그아웃 시 프로필 초기화
+        setUserProfile({});
       }
     });
     return () => subscription.unsubscribe();
@@ -76,25 +84,31 @@ export default function App() {
     if (session) fetchAllData();
   }, [session]);
 
-  // 🚀 기본 네비게이션 아이템
-  const navItems = [
-    { id: 'dashboard', label: '홈', icon: <LayoutDashboard size={20} /> },
-    { id: 'coursework', label: '과제', icon: <BookOpen size={20} /> },
-    { id: 'calendar', label: '캘린더', icon: <Calendar size={20} /> },
-    { id: 'profile', label: 'MY', icon: <User size={20} /> },
-  ];
+  // 학습코칭 탭 버튼을 눌렀을 때 항상 대시보드 홈으로 가도록 설정
+  const handleNavClick = (id) => {
+    if (id === 'learning') {
+      setActiveTab('learning_dashboard');
+    } else {
+      setActiveTab(id);
+    }
+  };
 
-  // 🚀 관리자 권한이 있을 경우 '관리' 탭 추가
-  if (userProfile?.is_admin) {
-    navItems.push({ id: 'admin', label: '관리', icon: <ShieldCheck size={20} className="text-red-400" /> });
-  }
+  const navItems = [
+    { id: 'dashboard', label: '홈', icon: <LayoutDashboard size={22} /> },
+    { id: 'coursework', label: '과제', icon: <BookOpen size={22} /> },
+    { id: 'calendar', label: '캘린더', icon: <Calendar size={22} /> },
+    { id: 'learning', label: '학습코칭', icon: <Brain size={22} /> },
+    { id: 'profile', label: 'MY', icon: <User size={22} /> },
+  ];
 
   if (isAuthLoading) return <div className="min-h-screen bg-slate-50 flex items-center justify-center font-black text-[#6366f1] animate-pulse">GradFlow 로딩 중...</div>;
   if (!session) return <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4"><AuthScreen showAlert={showAlert} /></div>;
 
+  // 학습코칭 하위 메뉴인지 판단
+  const isLearningTab = activeTab.startsWith('learning');
+
   return (
     <div className="fixed inset-0 bg-slate-50 flex flex-col md:flex-row overflow-hidden font-sans text-left">
-      {/* 데스크톱 사이드바 */}
       <aside className="hidden md:flex w-64 bg-[#1a1f2c] p-6 text-white flex-col z-20">
         <div className="flex items-center space-x-3 mb-12 px-2">
           <div className="bg-[#6366f1] p-2 rounded-xl shadow-lg shadow-indigo-500/20"><GraduationCap size={24} className="text-white" /></div>
@@ -104,9 +118,9 @@ export default function App() {
           {navItems.map((item) => (
             <button 
               key={item.id} 
-              onClick={() => setActiveTab(item.id)} 
+              onClick={() => handleNavClick(item.id)} 
               className={`w-full flex items-center space-x-4 px-5 py-4 rounded-2xl font-bold transition-all ${
-                activeTab === item.id 
+                (activeTab === item.id || (item.id === 'learning' && isLearningTab))
                   ? 'bg-[#5c56e0] text-white shadow-lg' 
                   : 'text-gray-400 hover:bg-white/5'
               }`}
@@ -117,7 +131,6 @@ export default function App() {
         </nav>
       </aside>
 
-      {/* 모바일 헤더 */}
       <header className="md:hidden fixed top-0 left-0 right-0 bg-white border-b border-gray-100 h-[56px] flex items-center justify-between px-5 z-[50] shadow-sm">
         <div className="flex items-center gap-2.5">
           <div className="bg-[#6366f1] p-1.5 rounded-lg shadow-md"><GraduationCap size={18} className="text-white" /></div>
@@ -126,36 +139,50 @@ export default function App() {
         <button className="p-2 text-gray-400"><Bell size={20} /></button>
       </header>
 
-      {/* 메인 컨텐츠 영역 */}
       <main ref={mainContentRef} className="flex-1 overflow-y-auto p-4 md:p-12 pt-[72px] md:pt-12 pb-20 md:pb-12 scroll-smooth">
-        <div className="max-w-5xl mx-auto">
+        <div className="max-w-5xl mx-auto w-full h-full relative">
+          
+          {/* 🚀 통합 라우팅 스위치 영역 */}
           {activeTab === 'dashboard' && <Dashboard courses={courses} coursework={coursework} setCoursework={setCoursework} userProfile={userProfile} setActiveTab={setActiveTab} providerToken={providerToken} />}
           {activeTab === 'coursework' && <Coursework courses={courses} setCourses={setCourses} coursework={coursework} setCoursework={setCoursework} showAlert={showAlert} />}
           {activeTab === 'calendar' && <CalendarView courses={courses} coursework={coursework} setCoursework={setCoursework} />}
           {activeTab === 'profile' && <Profile userProfile={userProfile} setUserProfile={setUserProfile} showAlert={showAlert} setActiveTab={setActiveTab} />}
-          
-          {/* 🚀 관리자 페이지 렌더링 (is_admin 확인 후 노출) */}
-          {activeTab === 'admin' && userProfile?.is_admin && <AdminDashboard />}
+          {activeTab === 'admin' && <AdminDashboard setActiveTab={setActiveTab} />}
+
+          {/* 학습 코칭 관련 뷰들 */}
+          {activeTab === 'learning_dashboard' && <DashboardHome onNavigate={(target) => setActiveTab(`learning_${target}`)} />}
+          {activeTab === 'learning_general' && (
+            <GeneralStudy 
+              onBack={() => setActiveTab('learning_dashboard')} 
+              onNavigate={setActiveTab} // 🚀 이 줄을 추가하세요!
+            />
+          )}
+          {activeTab === 'learning_biblical' && (
+            <BiblicalStudy 
+              onBack={() => setActiveTab('learning_dashboard')} 
+              onNavigate={setActiveTab} // 🚀 이 줄을 추가하세요!
+            />
+          )}
         </div>
       </main>
 
-      {/* 모바일 하단 네비게이션 */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-50 flex justify-around items-center py-1.5 px-2 z-[50] shadow-[0_-4px_20px_rgba(0,0,0,0.04)]">
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-50 flex justify-between items-center py-2 px-1 z-[50] shadow-[0_-4px_20px_rgba(0,0,0,0.04)] pb-[env(safe-area-inset-bottom)]">
         {navItems.map((item) => (
           <button 
             key={item.id} 
-            onClick={() => setActiveTab(item.id)} 
-            className={`flex flex-col items-center justify-center min-w-[60px] py-1 transition-all ${
-              activeTab === item.id ? 'text-[#6366f1]' : 'text-gray-300'
+            onClick={() => handleNavClick(item.id)} 
+            className={`flex-1 flex flex-col items-center justify-center py-1 transition-all ${
+              (activeTab === item.id || (item.id === 'learning' && isLearningTab)) ? 'text-[#6366f1]' : 'text-gray-400'
             }`}
           >
-            <div className={`p-1 rounded-xl transition-colors ${activeTab === item.id ? 'bg-indigo-50' : ''}`}>{item.icon}</div>
-            <span className="text-[10px] font-bold mt-0.5 tracking-tighter">{item.label}</span>
+            <div className={`p-1.5 rounded-xl transition-colors ${ (activeTab === item.id || (item.id === 'learning' && isLearningTab)) ? 'bg-indigo-50' : ''}`}>
+              {React.cloneElement(item.icon, { size: 20 })}
+            </div>
+            <span className="text-[10px] font-bold mt-0.5 tracking-tighter whitespace-nowrap">{item.label}</span>
           </button>
         ))}
       </nav>
 
-      {/* 토스트 알림 */}
       {toast && <div className="fixed top-[68px] md:top-6 left-1/2 -translate-x-1/2 z-[100] bg-gray-900/90 backdrop-blur-md text-white px-6 py-3 rounded-2xl shadow-2xl font-bold animate-in fade-in zoom-in duration-300">{toast}</div>}
     </div>
   );

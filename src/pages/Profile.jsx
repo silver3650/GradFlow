@@ -1,11 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { 
-  User, ShieldCheck, LogOut, Settings, Calendar, 
-  BookOpen, Edit3, Check, X, GraduationCap, ArrowRight, Shield
+  User, ShieldCheck, LogOut, Edit3, Check, X, 
+  GraduationCap, ArrowRight, Shield, Calendar, BookOpen
 } from 'lucide-react';
 import { supabase } from '../supabaseClient';
 
-// 🚀 setActiveTab 인자를 받아 관리자 페이지로의 화면 전환을 처리합니다.
 export default function Profile({ userProfile = {}, setUserProfile, showAlert, setActiveTab }) {
   const [isEditing, setIsEditing] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -13,7 +12,6 @@ export default function Profile({ userProfile = {}, setUserProfile, showAlert, s
   const [isLmsLinked, setIsLmsLinked] = useState(false);
   const [isCustomDegree, setIsCustomDegree] = useState(false);
   
-  // 유저 이메일 상태
   const [userEmail, setUserEmail] = useState(userProfile.email || '');
 
   const [formData, setFormData] = useState({
@@ -29,7 +27,6 @@ export default function Profile({ userProfile = {}, setUserProfile, showAlert, s
   });
 
   useEffect(() => {
-    // 1. 프로필 데이터 초기화
     const initialDegree = userProfile.degree || 'M.S.';
     setFormData({
       nickname: userProfile.nickname || '',
@@ -43,7 +40,6 @@ export default function Profile({ userProfile = {}, setUserProfile, showAlert, s
       bio: userProfile.bio || ''
     });
 
-    // 2. 직접 입력 학위 여부 판단
     const commonDegrees = ['M.S.', 'M.A.', 'M.B.A.', 'M.Div.', 'Ph.D.', 'M.S./Ph.D.'];
     if (initialDegree && !commonDegrees.includes(initialDegree)) {
       setIsCustomDegree(true);
@@ -51,11 +47,9 @@ export default function Profile({ userProfile = {}, setUserProfile, showAlert, s
       setIsCustomDegree(false);
     }
 
-    // 3. 구글 연동 확인
     const token = localStorage.getItem('google_provider_token');
     setIsGoogleLinked(!!token);
 
-    // 4. 이메일 정보 보완
     const fetchAuthUser = async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
@@ -80,7 +74,6 @@ export default function Profile({ userProfile = {}, setUserProfile, showAlert, s
     try {
       const { data: { user } } = await supabase.auth.getUser();
       
-      // 🚀 upsert를 사용하여 데이터가 없으면 생성, 있으면 수정을 자동으로 처리
       const { error } = await supabase
         .from('profiles')
         .upsert({
@@ -131,13 +124,11 @@ export default function Profile({ userProfile = {}, setUserProfile, showAlert, s
   return (
     <div className="max-w-5xl mx-auto space-y-6 animate-in fade-in duration-500 pb-24 text-left font-sans px-4">
       
-      {/* 타이틀 */}
       <div className="pt-4 pb-2">
         <h1 className="text-3xl font-black text-gray-900 mb-2 tracking-tighter">MY PROFILE</h1>
         <p className="text-gray-500 font-bold text-sm md:text-base">회원 정보 및 외부 서비스 연동 설정을 관리합니다.</p>
       </div>
 
-      {/* 🚀 관리자 배너: setActiveTab을 사용하여 관리자 페이지로 이동 */}
       {userProfile.is_admin && (
         <div className="bg-slate-900 text-white rounded-2xl p-4 sm:p-5 shadow-lg flex flex-col sm:flex-row justify-between items-center gap-4 border-l-8 border-red-600">
           <div className="flex items-center gap-3">
@@ -175,12 +166,19 @@ export default function Profile({ userProfile = {}, setUserProfile, showAlert, s
                 </span>
               </div>
               <p className="text-sm font-medium text-gray-500 mb-2">{userEmail || '이메일 정보 없음'}</p>
-              <p className="text-gray-600 font-bold text-sm md:text-base mb-1">
-                {userProfile.university} {userProfile.graduate_school} • {userProfile.major}
-              </p>
-              <p className="text-indigo-600 font-black text-sm">
-                {userProfile.degree || 'M.S.'} {userProfile.semester}/{userProfile.total_semesters || '4'}학기
-              </p>
+              
+              {/* 수정 모드가 아닐 때 요약 정보 제공 */}
+              {!isEditing && (
+                <>
+                  <p className="text-gray-600 font-bold text-sm md:text-base mb-1">
+                    {userProfile.university} {userProfile.graduate_school} • {userProfile.major}
+                  </p>
+                  <p className="text-indigo-600 font-black text-sm">
+                    {userProfile.degree || 'M.S.'} {userProfile.semester}/{userProfile.total_semesters || '4'}학기
+                  </p>
+                  {userProfile.bio && <p className="text-sm font-medium text-gray-500 mt-2 bg-slate-50 p-2 rounded-lg inline-block border border-slate-100">"{userProfile.bio}"</p>}
+                </>
+              )}
             </div>
           </div>
           <div className="flex gap-2 w-full md:w-auto">
@@ -201,40 +199,32 @@ export default function Profile({ userProfile = {}, setUserProfile, showAlert, s
         </div>
       </div>
 
-      {/* 상세 학업 정보 폼 */}
-      <div className="bg-white rounded-[24px] border border-gray-100 p-6 md:p-8 shadow-sm">
-        <h3 className="text-lg font-black text-gray-800 mb-5 flex items-center">
-          <GraduationCap className="mr-2 text-indigo-500" size={20} /> 상세 학업 정보
-        </h3>
-        
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-x-6 md:gap-y-5">
-          <div className="space-y-1.5">
-            <label className="text-xs font-bold text-gray-400">실명 / 닉네임</label>
-            {isEditing ? (
+      {/* 🚀 상세 학업 정보 폼 (수정 버튼을 눌렀을 때만 나타남) */}
+      {isEditing && (
+        <div className="bg-white rounded-[24px] border border-gray-100 p-6 md:p-8 shadow-sm animate-in fade-in slide-in-from-top-4 duration-300">
+          <h3 className="text-lg font-black text-gray-800 mb-5 flex items-center">
+            <GraduationCap className="mr-2 text-indigo-500" size={20} /> 상세 학업 정보 수정
+          </h3>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-x-6 md:gap-y-5">
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold text-gray-400">실명 / 닉네임</label>
               <div className="flex gap-2">
                 <input className="w-1/2 px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm font-bold focus:outline-none focus:border-indigo-400" value={formData.full_name} onChange={(e) => setFormData({...formData, full_name: e.target.value})} placeholder="실명" />
                 <input className="w-1/2 px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm font-bold focus:outline-none focus:border-indigo-400" value={formData.nickname} onChange={(e) => setFormData({...formData, nickname: e.target.value})} placeholder="닉네임" />
               </div>
-            ) : (
-              <p className="text-sm font-bold text-gray-800 py-2">{userProfile.full_name} / {userProfile.nickname}</p>
-            )}
-          </div>
+            </div>
 
-          <div className="space-y-1.5">
-            <label className="text-xs font-bold text-gray-400">소속 대학교 / 대학원</label>
-            {isEditing ? (
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold text-gray-400">소속 대학교 / 대학원</label>
               <div className="flex gap-2">
                 <input className="w-1/2 px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm font-bold focus:outline-none focus:border-indigo-400" value={formData.university} onChange={(e) => setFormData({...formData, university: e.target.value})} placeholder="대학교" />
                 <input className="w-1/2 px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm font-bold focus:outline-none focus:border-indigo-400" value={formData.graduate_school} onChange={(e) => setFormData({...formData, graduate_school: e.target.value})} placeholder="대학원" />
               </div>
-            ) : (
-              <p className="text-sm font-bold text-gray-800 py-2">{userProfile.university} {userProfile.graduate_school}</p>
-            )}
-          </div>
+            </div>
 
-          <div className="space-y-1.5 md:col-span-2">
-            <label className="text-xs font-bold text-gray-400">학과(전공) / 학위 및 학기</label>
-            {isEditing ? (
+            <div className="space-y-1.5 md:col-span-2">
+              <label className="text-xs font-bold text-gray-400">학과(전공) / 학위 및 학기</label>
               <div className="flex gap-2 w-full md:w-3/4">
                 <input className="w-[45%] px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm font-bold focus:outline-none focus:border-indigo-400" value={formData.major} onChange={(e) => setFormData({...formData, major: e.target.value})} placeholder="학과 및 전공" />
                 
@@ -289,26 +279,14 @@ export default function Profile({ userProfile = {}, setUserProfile, showAlert, s
                   <input type="number" min="1" max="20" className="w-full bg-transparent text-sm font-bold text-center focus:outline-none" value={formData.total_semesters} onChange={(e) => setFormData({...formData, total_semesters: e.target.value})} placeholder="전체" />
                 </div>
               </div>
-            ) : (
-              <p className="text-sm font-bold text-gray-800 py-2">
-                {userProfile.major} / {userProfile.degree || 'M.S.'} {userProfile.semester}/{userProfile.total_semesters || '4'}학기
-              </p>
-            )}
-          </div>
+            </div>
 
-          {(isEditing || userProfile.bio) && (
             <div className="space-y-1.5 md:col-span-2">
               <label className="text-xs font-bold text-gray-400">한 줄 소개</label>
-              {isEditing ? (
-                <input className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm font-bold focus:outline-none focus:border-indigo-400" value={formData.bio} onChange={(e) => setFormData({...formData, bio: e.target.value})} placeholder="연구 분야나 목표를 적어주세요." />
-              ) : (
-                <p className="text-sm font-bold text-gray-800 py-2">{userProfile.bio}</p>
-              )}
+              <input className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm font-bold focus:outline-none focus:border-indigo-400" value={formData.bio} onChange={(e) => setFormData({...formData, bio: e.target.value})} placeholder="연구 분야나 목표를 적어주세요." />
             </div>
-          )}
-        </div>
+          </div>
 
-        {isEditing && (
           <div className="mt-6 flex justify-end">
             <button 
               onClick={handleUpdateProfile}
@@ -318,11 +296,11 @@ export default function Profile({ userProfile = {}, setUserProfile, showAlert, s
               {loading ? '저장 중...' : <><Check size={18} /> 변경사항 저장하기</>}
             </button>
           </div>
-        )}
-      </div>
+        </div>
+      )}
 
       {/* 외부 연동 */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
         <div className={`flex justify-between items-center p-5 rounded-[24px] border transition-all ${isGoogleLinked ? 'bg-indigo-50 border-indigo-100' : 'bg-white border-gray-100 shadow-sm'}`}>
           <div className="flex items-center gap-3">
             <div className={`p-2.5 rounded-xl ${isGoogleLinked ? 'bg-indigo-500 text-white' : 'bg-gray-100 text-gray-400'}`}>
