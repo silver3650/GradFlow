@@ -6,35 +6,57 @@ import {
   UploadCloud, Search, BookMarked, Repeat, Play, Volume2, 
   EyeOff, Brain, Trash2, CheckCircle, XCircle, BookOpen, 
   Zap, RefreshCw, Globe, CheckSquare, Square, X, Plus, 
-  Settings, Lightbulb, FileText, ArrowLeft, AlignLeft, AlertCircle, Loader2
+  Settings, Lightbulb, FileText, ArrowLeft, AlignLeft, AlertCircle, Loader2, Edit3, Save
 } from 'lucide-react';
 
+// 🚀 [궁극의 AI 복구 파서] 잘린 JSON 꼬리, 쓰레기 문자, 쉼표 누락을 모두 잡아냅니다.
 const parseAIResponse = (text) => {
   let cleaned = text.replace(/```(?:json)?/gi, '').replace(/```/g, '').trim();
+  cleaned = cleaned.replace(/[\r\n\t]+/g, ' ');
+
+  const firstBracket = cleaned.indexOf('[');
+  const firstBrace = cleaned.indexOf('{');
+  let startIdx = -1;
+  if (firstBracket !== -1 && firstBrace !== -1) startIdx = Math.min(firstBracket, firstBrace);
+  else if (firstBracket !== -1) startIdx = firstBracket;
+  else if (firstBrace !== -1) startIdx = firstBrace;
+
+  if (startIdx !== -1) cleaned = cleaned.substring(startIdx);
+
+  if (cleaned.startsWith('[') && !cleaned.endsWith(']')) {
+     const lastBrace = cleaned.lastIndexOf('}');
+     if (lastBrace !== -1) cleaned = cleaned.substring(0, lastBrace + 1) + ']';
+  } else if (cleaned.startsWith('{') && !cleaned.endsWith('}')) {
+     const lastBracket = cleaned.lastIndexOf(']');
+     const lastBrace = cleaned.lastIndexOf('}');
+     const lastValid = Math.max(lastBracket, lastBrace);
+     if (lastValid !== -1) cleaned = cleaned.substring(0, lastValid + 1) + '}';
+  }
+
   cleaned = cleaned.replace(/"\s+(?="[a-zA-Z0-9_]+":)/g, '", ');
   cleaned = cleaned.replace(/}\s*(?={)/g, '}, ');
   cleaned = cleaned.replace(/,\s*([\]}])/g, '$1');
 
   try {
     return JSON.parse(cleaned);
-  } catch (e1) {
-    if (cleaned.startsWith('{') && cleaned.endsWith('}')) {
-      try { return JSON.parse(`[${cleaned}]`); } catch (e2) {}
+  } catch (e) {
+    let endChar = cleaned.startsWith('[') ? ']' : '}';
+    let end = cleaned.lastIndexOf(endChar);
+    while (end !== -1) {
+      try {
+        return JSON.parse(cleaned.substring(0, end + 1));
+      } catch(e2) {
+        end = cleaned.lastIndexOf(endChar, end - 1);
+      }
     }
-    const startIdx = cleaned.indexOf('[');
-    const endIdx = cleaned.lastIndexOf(']');
-    if (startIdx !== -1 && endIdx !== -1 && startIdx < endIdx) {
-      try { return JSON.parse(cleaned.substring(startIdx, endIdx + 1)); } catch (e3) {}
-    }
-    console.error("AI 응답 JSON 파싱 실패 원본 텍스트:", cleaned);
+    console.error("AI 응답 JSON 파싱 실패 원본 텍스트:", text);
     throw new Error("AI 응답 포맷이 올바르지 않습니다.");
   }
 };
 
-// 🚀 기존 데이터에 들어있는 영어 괄호를 제거하는 헬퍼 함수
 const cleanGrammarText = (text) => {
   if (!text) return '';
-  return text.replace(/[a-zA-Z\(\)]/g, '').trim(); // 영문자와 괄호를 싹 지우고 한글만 남깁니다.
+  return text.replace(/[a-zA-Z\(\)]/g, '').trim(); 
 };
 
 export default function BiblicalStudy({ onBack, onNavigate }) {
@@ -106,34 +128,30 @@ export default function BiblicalStudy({ onBack, onNavigate }) {
     setBiblicalTab('sentences');
 
     try {
-      // 🚀 프롬프트 업데이트: 문법 속성에 영어 병기를 절대 금지하고 오직 한글만 출력하도록 지시
       const prompt = `
-다음 성서 원어 텍스트를 분석하여 파싱 데이터를 생성해줘.
+다음 입력된 자료에서 '성서 원어(헬라어/히브리어)' 문장만을 추출하여 파싱 데이터를 생성해.
 [최고 수준 경고 - JSON 문법 절대 엄수]
 응답은 반드시 처음 시작을 '['로, 끝을 ']'로 닫는 완벽한 JSON 배열 포맷이어야 해.
-1. 모든 문자열 값(Value)은 반드시 큰따옴표(")로 감싸야 해!
-2. 속성(Key-Value)들 사이에는 반드시 쉼표(,)를 넣어!
 
 [입력 자료]
 ${payload.type === 'text' ? payload.content : payload.fileContent}
 
 [요구사항]
-1. 문장 단위로 분리하여 객체 배열로 만들 것. (파일 내용이 방대할 경우 최대 10문장만 처리할 것)
-2. 'language'는 'greek' 또는 'hebrew'로 지정.
-3. 'original'은 원어 문장, 'translation'은 한글 번역.
-4. 'words' 배열에는 단어들을 파싱하여 담을 것.
-5. 단어 객체의 공통 필수 속성: "id", "word", "lemma", "pos", "meaning", "pronunciation"
-6. [매우 중요 - 세부 파싱 한글 출력] 
-   **주의: 문법 속성의 값(Value)에는 영어나 괄호(예: Present, Active 등)를 절대 넣지 마! 오직 순수 한글(예: 현재, 능동태, 3인칭)로만 작성할 것.**
-   - 동사(Verb)인 경우: "tense"(시제), "voice"(태), "mood"(법), "person"(인칭), "number"(수)
-   - 명사/대명사/관사/형용사인 경우: "gender"(성), "number"(수), "case"(격)
+1. 텍스트에 섞여 있는 한글 지시문(예: 연습문제, 파싱하라), 숫자(예: 1), 2., 3), 기호 등은 전부 무시하고 완벽하게 삭제해.
+2. 오직 '헬라어' 또는 '히브리어'로 이루어진 원어 문장만 순수하게 추출하여 문장 단위로 객체 배열을 만들어.
+3. 데이터가 방대하여 출력이 끊기는 것을 막기 위해, 아무리 문장이 많아도 **최대 10개의 문장까지만 추출하여 완벽하게 JSON을 닫고 종료해.**
+4. 'language'는 'greek' 또는 'hebrew'로 지정.
+5. 'original'은 원어 문장(숫자/한글 제거됨), 'translation'은 자연스러운 한글 번역.
+6. 'words' 배열에는 문장 안의 단어들을 순서대로 파싱하여 담을 것.
+7. [매우 중요 - 세부 파싱 한글 출력] 
+   문법 속성의 값(Value)에는 영어나 괄호(예: Present, Active)를 절대로 넣지 마! 오직 '순수 한글'(예: 현재, 능동태, 3인칭, 복수, 남성)로만 작성해.
 
-[출력 예시 - 반드시 이 배열 형식 유지]
+[출력 예시]
 [
   {
     "language": "greek",
-    "original": "Ἐν ἀρχῇ",
-    "translation": "태초에",
+    "original": "Ἐν ἀρχῇ ἦν ὁ λόγος",
+    "translation": "태초에 말씀이 계셨다",
     "words": [
       { "id": "w1", "word": "Ἐν", "lemma": "ἐν", "pos": "전치사", "meaning": "~안에", "pronunciation": "엔" },
       { "id": "w2", "word": "ἀρχῇ", "lemma": "ἀρχή", "pos": "명사", "meaning": "태초, 시작", "pronunciation": "아르케", "gender": "여성", "number": "단수", "case": "여격" }
@@ -141,12 +159,16 @@ ${payload.type === 'text' ? payload.content : payload.fileContent}
   }
 ]
 `;
-      const responseText = await callGeminiAPI(prompt, "성서 원어 형태소 파싱"); 
+      const responseText = await callGeminiAPI(prompt, "성서 원어 형태소 대량 파싱"); 
       let parsedAI = parseAIResponse(responseText);
 
       let sentencesArray = [];
       if (Array.isArray(parsedAI)) {
-        sentencesArray = parsedAI;
+        if (parsedAI.length === 1 && parsedAI[0].sentences) {
+          sentencesArray = parsedAI[0].sentences;
+        } else {
+          sentencesArray = parsedAI;
+        }
       } else if (parsedAI.sentences && Array.isArray(parsedAI.sentences)) {
         sentencesArray = parsedAI.sentences;
       } else if (parsedAI.data && Array.isArray(parsedAI.data)) {
@@ -176,25 +198,38 @@ ${payload.type === 'text' ? payload.content : payload.fileContent}
       }
 
       setSentences(prev => [...newSentences, ...prev]);
-      showToast(`AI 파싱 완료! ${newSentences.length}개의 원어 문장이 저장되었습니다.`);
+      showToast(`AI 파싱 완료! 성공적으로 ${newSentences.length}개의 원어 문장을 분석했습니다.`);
     } catch (error) {
       console.error("AI 처리/저장 에러:", error);
-      showToast(`분석 중 오류가 발생했습니다. 다시 시도해주세요.`);
+      showToast(`분석 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.`);
     } finally {
       setIsAnalyzing(false);
     }
   };
 
-  const handleReparseSentence = async (sentence) => {
+  // 🚀 [수정] 문장 수정 텍스트를 인자로 받아 먼저 DB에 업데이트 한 뒤 재분석을 수행하도록 로직 강화
+  const handleReparseSentence = async (sentence, newOriginalText = null) => {
     setReparsingId(sentence.id);
+    const targetText = newOriginalText || sentence.original;
+    
     try {
+      if (newOriginalText && newOriginalText !== sentence.original) {
+        // 문장을 직접 수정했을 경우 DB에 원문 텍스트 선반영
+        const { error: updateErr } = await supabase
+          .from('biblical_sentences')
+          .update({ original: targetText })
+          .eq('id', sentence.id);
+        if (updateErr) throw updateErr;
+      }
+
       const prompt = `
 다음 성서 원어 단일 문장을 분석하여 단어별 파싱 데이터만 JSON 배열로 반환해.
-[최고 수준 경고] 배열 '[ ]' 안에 객체를 담아야 하며, 문자열은 모두 쌍따옴표로 묶어라.
-[주의] 문법 속성의 값(Value)에는 영어나 괄호(예: Present, Active)를 절대 포함하지 말고 오직 한글로만 작성할 것.
+[최고 수준 경고] 
+1. 배열 '[ ]' 안에 객체를 담아야 하며, 문자열은 모두 쌍따옴표로 묶어라.
+2. 문법 속성의 값(Value)에는 영어나 괄호(예: Present, Active)를 절대 포함하지 말고 오직 '한글'로만 작성할 것. (예: 3인칭, 단수, 남성, 현재, 직설법)
 
 [원본 문장]
-${sentence.original}
+${targetText}
 
 [요구사항]
 1. 문장 내의 모든 단어를 순서대로 객체화하여 배열에 담을 것.
@@ -203,14 +238,15 @@ ${sentence.original}
 
 [출력 예시]
 [
-  { "id": "w1", "word": "단어", "lemma": "원형", "pos": "품사", "meaning": "의미", "pronunciation": "발음" },
-  { "id": "w2", "word": "단어2", ... }
+  { "id": "w1", "word": "단어", "lemma": "원형", "pos": "품사", "meaning": "의미", "pronunciation": "발음", "person": "3인칭", "number": "단수" }
 ]
 `;
       const responseText = await callGeminiAPI(prompt, "단일 문장 강제 파싱");
       let parsedWords = parseAIResponse(responseText);
       
-      if (!Array.isArray(parsedWords)) {
+      if (Array.isArray(parsedWords) && parsedWords.length === 1 && parsedWords[0].words) {
+        parsedWords = parsedWords[0].words;
+      } else if (!Array.isArray(parsedWords)) {
         if (parsedWords.words && Array.isArray(parsedWords.words)) {
           parsedWords = parsedWords.words;
         } else {
@@ -225,13 +261,13 @@ ${sentence.original}
 
       const { error } = await supabase
         .from('biblical_sentences')
-        .update({ words: newWords })
+        .update({ original: targetText, words: newWords }) // 텍스트와 단어목록 모두 업데이트
         .eq('id', sentence.id);
 
       if (error) throw error;
 
-      setSentences(prev => prev.map(s => s.id === sentence.id ? { ...s, words: newWords } : s));
-      showToast('해당 문장의 강제 파싱이 완료되었습니다.');
+      setSentences(prev => prev.map(s => s.id === sentence.id ? { ...s, original: targetText, words: newWords } : s));
+      showToast('문장 파싱이 완료되었습니다.');
     } catch (error) {
       console.error("재분석 에러:", error);
       showToast('재분석에 실패했습니다. 다시 시도해주세요.');
@@ -317,6 +353,20 @@ ${sentence.original}
     }
   };
 
+  // 🚀 [신규] 체크된 문장들 대량 삭제
+  const handleBulkDeleteSentences = async (ids) => {
+    if (ids.length === 0) return;
+    if (!window.confirm(`선택한 ${ids.length}개의 문장을 정말 삭제하시겠습니까?`)) return;
+    
+    const { error } = await supabase.from('biblical_sentences').delete().in('id', ids);
+    if (!error) {
+      setSentences(prev => prev.filter(s => !ids.includes(s.id)));
+      showToast(`${ids.length}개의 문장이 삭제되었습니다.`);
+    } else {
+      showToast('삭제 중 오류가 발생했습니다.');
+    }
+  };
+
   const filteredSentences = sentences.filter(s => globalLang === 'all' || s.language === globalLang);
   const filteredVocab = vocabulary.filter(v => globalLang === 'all' || v.language === globalLang);
   const filteredReview = reviewList.filter(r => globalLang === 'all' || r.wordObj.language === globalLang);
@@ -393,7 +443,8 @@ ${sentence.original}
             <RefreshCw className="animate-spin text-indigo-500 mb-4" size={40} />
             <h3 className="text-sm md:text-base font-extrabold text-slate-800 mb-2">AI가 원어 텍스트를 파싱하고 있습니다</h3>
             <p className="text-xs md:text-sm text-slate-500 text-center leading-relaxed">
-              문장 단위로 분리하고 각 단어의 원형, 품사, 문법 속성을 분석 중입니다.
+              불필요한 텍스트를 걸러내고 순수 원어 문장만 분석 중입니다.<br/>
+              (텍스트가 방대할 경우 상위 10문장씩 안전하게 처리됩니다.)
             </p>
           </div>
         ) : (
@@ -403,6 +454,7 @@ ${sentence.original}
             onAddVocab={handleAddVocab} 
             globalLang={globalLang} 
             onDelete={handleDeleteSentence}
+            onBulkDelete={handleBulkDeleteSentences} // 대량 삭제 프롭스
             onReparse={handleReparseSentence}     
             reparsingId={reparsingId}             
           />
@@ -448,12 +500,25 @@ function BiblicalUploadTab({ onUpload }) {
     e.preventDefault();
     setIsDragging(false);
     const file = e.dataTransfer.files[0];
-    if (file) processFile(file);
+    if (file) {
+      if (file.name.toLowerCase().endsWith('.pdf')) {
+        alert("PDF 파일은 직접 읽을 수 없습니다.\n\n해결방법: PDF 파일을 열어서 텍스트를 드래그 복사한 뒤, 왼쪽의 '텍스트 직접 입력' 창에 붙여넣기 해주세요!");
+        return;
+      }
+      processFile(file);
+    }
   };
 
   const handleFileInputChange = (e) => {
     const file = e.target.files[0];
-    if (file) processFile(file);
+    if (file) {
+      if (file.name.toLowerCase().endsWith('.pdf')) {
+        alert("PDF 파일은 직접 첨부할 수 없습니다.\n\n해결방법: PDF 파일을 열어서 텍스트를 복사한 뒤, 왼쪽의 '텍스트 직접 입력' 창에 붙여넣기 해주세요!");
+        e.target.value = ''; 
+        return;
+      }
+      processFile(file);
+    }
   };
 
   return (
@@ -461,7 +526,7 @@ function BiblicalUploadTab({ onUpload }) {
       <div className="bg-slate-800 p-4 rounded-3xl text-white shadow-md relative overflow-hidden">
         <div className="relative z-10">
           <h2 className="text-sm font-bold mb-1 flex items-center gap-1.5"><Brain size={15} className="text-indigo-400" /> 성서 원어 AI 파서</h2>
-          <p className="text-slate-300 text-xs leading-relaxed max-w-lg">그리스어(헬라어) 및 히브리어 텍스트를 입력하거나 파일을 첨부하면, 단어 단위로 문법을 자동 파싱합니다.</p>
+          <p className="text-slate-300 text-[11px] leading-relaxed max-w-lg">그리스어(헬라어) 및 히브리어 텍스트를 입력하면 단어 단위로 문법을 파싱합니다. <span className="text-indigo-300 font-bold">대량의 문장이나 복사해온 문제지 내용도 알아서 원어만 필터링합니다.</span></p>
         </div>
       </div>
 
@@ -471,12 +536,12 @@ function BiblicalUploadTab({ onUpload }) {
           <div className="flex-1 flex flex-col pt-1">
             <textarea 
               className="w-full p-3 border border-slate-200 rounded-xl resize-none text-[13px] font-serif mb-2 flex-1 focus:border-indigo-500 outline-none leading-loose" 
-              placeholder="원어 텍스트 입력... (예: Ἐν ἀρχῇ ἦν ὁ λόγος)"
+              placeholder="여기에 원어 텍스트나 PDF 내용을 복사해서 붙여넣으세요. (한글, 숫자, 문제 번호가 섞여 있어도 AI가 알아서 제거합니다)"
               value={textContent}
               onChange={(e) => setTextContent(e.target.value)}
             />
             <button onClick={handleTextSubmit} disabled={isParsing || !textContent} className="w-full py-2.5 bg-indigo-100 hover:bg-indigo-200 text-indigo-800 text-xs font-bold rounded-xl transition-colors disabled:opacity-50">
-              {isParsing ? '준비 중...' : '단일 문장 분석 시작'}
+              {isParsing ? '준비 중...' : '텍스트 AI 분석 시작'}
             </button>
           </div>
         </div>
@@ -484,8 +549,8 @@ function BiblicalUploadTab({ onUpload }) {
         <div className="bg-indigo-50 p-4 rounded-3xl shadow-sm border-2 border-indigo-200 flex flex-col relative">
           <div className="absolute top-0 right-0 bg-indigo-500 text-white text-[10px] font-bold px-2.5 py-1 rounded-bl-xl shadow-sm z-10">AI PRO</div>
           <div className="mb-2 relative z-10">
-            <h3 className="text-xs font-bold text-indigo-900 flex items-center gap-1.5 mb-0.5"><Zap className="text-amber-500 fill-amber-500" size={13}/> 시험 대비 파일 스캔</h3>
-            <p className="text-[10px] text-indigo-700">원어 교재(.txt)를 드래그하여 다수의 문장을 한 번에 파싱합니다.</p>
+            <h3 className="text-xs font-bold text-indigo-900 flex items-center gap-1.5 mb-0.5"><Zap className="text-amber-500 fill-amber-500" size={13}/> 텍스트 문서(.txt) 스캔</h3>
+            <p className="text-[10px] text-indigo-700">PDF 파일은 직접 첨부할 수 없습니다. 텍스트로 변환 후 올려주세요.</p>
           </div>
           
           <input type="file" id="biblical-file" className="hidden" accept=".txt,.md,.csv" onChange={handleFileInputChange} />
@@ -502,7 +567,7 @@ function BiblicalUploadTab({ onUpload }) {
              ) : (
                <div>
                  <FileText className="text-indigo-400 mx-auto mb-2" size={32} />
-                 <p className="font-bold text-indigo-900 text-xs mb-1.5">원어 텍스트 파일 드래그</p>
+                 <p className="font-bold text-indigo-900 text-xs mb-1.5">텍스트 파일(.txt) 드래그</p>
                  <span className="text-[10px] text-indigo-600 bg-indigo-100 px-3 py-1.5 rounded-full border border-indigo-200 inline-block font-bold">클릭하여 파일 찾기 (.txt)</span>
                </div>
              )}
@@ -513,13 +578,22 @@ function BiblicalUploadTab({ onUpload }) {
   );
 }
 
-function SentencesTab({ sentences, showPhonetics, onAddVocab, globalLang, onDelete, onReparse, reparsingId }) {
+function SentencesTab({ sentences, showPhonetics, onAddVocab, globalLang, onDelete, onBulkDelete, onReparse, reparsingId }) {
   const [selectedWordIds, setSelectedWordIds] = useState(new Set());
   const [activePopupWord, setActivePopupWord] = useState(null); 
+  
+  // 🚀 대량 삭제를 위한 문장 선택 State
+  const [selectedSentenceIds, setSelectedSentenceIds] = useState(new Set());
+  
+  // 🚀 인라인 편집을 위한 State
+  const [editingSentenceId, setEditingSentenceId] = useState(null);
+  const [editingSentenceText, setEditingSentenceText] = useState('');
 
   useEffect(() => { 
     setSelectedWordIds(new Set());
     setActivePopupWord(null);
+    setSelectedSentenceIds(new Set());
+    setEditingSentenceId(null);
   }, [globalLang]);
 
   if (sentences.length === 0) {
@@ -544,54 +618,146 @@ function SentencesTab({ sentences, showPhonetics, onAddVocab, globalLang, onDele
     setSelectedWordIds(new Set()); 
   };
 
+  const toggleSentenceSelect = (id) => {
+    const newSet = new Set(selectedSentenceIds);
+    newSet.has(id) ? newSet.delete(id) : newSet.add(id);
+    setSelectedSentenceIds(newSet);
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedSentenceIds.size === sentences.length) {
+      setSelectedSentenceIds(new Set());
+    } else {
+      setSelectedSentenceIds(new Set(sentences.map(s => s.id)));
+    }
+  };
+
   return (
     <div className="space-y-4 animate-in fade-in duration-300">
+      
+      {/* 🚀 상단 전체 선택 및 대량 삭제 컨트롤 바 */}
+      <div className="flex justify-between items-center bg-white p-3 rounded-2xl shadow-sm border border-slate-200">
+        <label className="flex items-center gap-2 cursor-pointer text-xs font-bold text-slate-600 hover:text-slate-800 transition-colors pl-1">
+          <input 
+            type="checkbox" 
+            checked={sentences.length > 0 && selectedSentenceIds.size === sentences.length} 
+            onChange={toggleSelectAll} 
+            className="w-4 h-4 rounded text-indigo-600 border-slate-300 focus:ring-indigo-500" 
+          />
+          전체 선택
+        </label>
+        {selectedSentenceIds.size > 0 && (
+          <button 
+            onClick={() => {
+              onBulkDelete(Array.from(selectedSentenceIds));
+              setSelectedSentenceIds(new Set());
+            }} 
+            className="bg-rose-50 text-rose-600 hover:bg-rose-100 hover:text-rose-700 px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-colors"
+          >
+            <Trash2 size={13} /> 선택 삭제 ({selectedSentenceIds.size})
+          </button>
+        )}
+      </div>
+
       {sentences.map((sentence, idx) => {
         const isRTL = sentence.language === 'hebrew';
         const activeWord = sentence.words?.find(w => activePopupWord?.sentenceId === sentence.id && activePopupWord?.wordId === w.id);
         const isEmptyWords = !sentence.words || sentence.words.length === 0;
 
         return (
-          <div key={sentence.id} className="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 relative group">
+          <div key={sentence.id} className={`bg-white p-4 rounded-2xl shadow-sm border relative group transition-colors ${selectedSentenceIds.has(sentence.id) ? 'border-indigo-300 bg-indigo-50/10' : 'border-slate-200'}`}>
             {sentence.is_exam_mode && <div className="absolute top-0 right-0 bg-amber-500 text-white text-[10px] font-bold px-3 py-0.5 rounded-tr-2xl rounded-bl-xl shadow-sm z-10">시험 핵심</div>}
             
             <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2.5">
+                <input 
+                  type="checkbox" 
+                  checked={selectedSentenceIds.has(sentence.id)} 
+                  onChange={() => toggleSentenceSelect(sentence.id)} 
+                  className="w-4 h-4 rounded text-indigo-600 border-slate-300 focus:ring-indigo-500 cursor-pointer" 
+                />
                 <span className="bg-slate-800 text-white text-[10px] font-bold px-2 py-0.5 rounded">문장 {idx + 1}</span>
                 <LanguageBadge language={sentence.language} />
               </div>
               
-              <div className="flex items-center gap-1.5 opacity-100 md:opacity-0 group-hover:opacity-100 transition-opacity">
-                <button 
-                  onClick={() => onReparse(sentence)} 
-                  disabled={reparsingId === sentence.id}
-                  className="flex items-center gap-1 text-[11px] font-bold text-indigo-600 bg-indigo-50 hover:bg-indigo-100 px-2.5 py-1.5 rounded-lg transition-colors disabled:opacity-50"
-                >
-                  {reparsingId === sentence.id ? <Loader2 size={13} className="animate-spin"/> : <RefreshCw size={13}/>} 
-                  재분석
-                </button>
-                <button 
-                  onClick={() => onDelete(sentence.id)} 
-                  className="text-slate-400 hover:text-rose-500 hover:bg-rose-50 p-1.5 rounded-lg transition-colors"
-                >
-                  <Trash2 size={14}/>
-                </button>
-              </div>
+              {/* 🚀 문장 수정 / 재분석 / 삭제 버튼 그룹 */}
+              {editingSentenceId === sentence.id ? (
+                <div className="flex items-center gap-1.5">
+                  <button 
+                    onClick={() => { onReparse(sentence, editingSentenceText); setEditingSentenceId(null); }} 
+                    disabled={reparsingId === sentence.id || !editingSentenceText.trim()}
+                    className="flex items-center gap-1 text-[11px] font-bold text-white bg-indigo-600 hover:bg-indigo-700 px-3 py-1.5 rounded-lg transition-colors shadow-sm disabled:opacity-50"
+                  >
+                    {reparsingId === sentence.id ? <Loader2 size={13} className="animate-spin"/> : <Save size={13}/>} 저장 및 분석
+                  </button>
+                  <button 
+                    onClick={() => setEditingSentenceId(null)} 
+                    className="text-slate-500 hover:bg-slate-100 p-1.5 rounded-lg transition-colors font-bold text-[11px] px-2.5"
+                  >
+                    취소
+                  </button>
+                </div>
+              ) : (
+                <div className="flex items-center gap-1 opacity-100 md:opacity-0 group-hover:opacity-100 transition-opacity">
+                  <button 
+                    onClick={() => { setEditingSentenceId(sentence.id); setEditingSentenceText(sentence.original); }} 
+                    className="text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 p-1.5 rounded-lg transition-colors"
+                    title="문장 텍스트 직접 수정"
+                  >
+                    <Edit3 size={14}/>
+                  </button>
+                  <button 
+                    onClick={() => onReparse(sentence)} 
+                    disabled={reparsingId === sentence.id}
+                    className="text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 p-1.5 rounded-lg transition-colors disabled:opacity-50"
+                    title="문장 재분석"
+                  >
+                    {reparsingId === sentence.id ? <Loader2 size={14} className="animate-spin"/> : <RefreshCw size={14}/>} 
+                  </button>
+                  <button 
+                    onClick={() => onDelete(sentence.id)} 
+                    className="text-slate-400 hover:text-rose-500 hover:bg-rose-50 p-1.5 rounded-lg transition-colors"
+                    title="삭제"
+                  >
+                    <Trash2 size={14}/>
+                  </button>
+                </div>
+              )}
             </div>
 
-            {isEmptyWords ? (
+            {/* 🚀 인라인 텍스트 편집 영역 */}
+            {editingSentenceId === sentence.id ? (
+              <div className="mb-3">
+                <textarea 
+                  value={editingSentenceText}
+                  onChange={(e) => setEditingSentenceText(e.target.value)}
+                  className="w-full p-3 border-2 border-indigo-200 rounded-xl text-sm font-serif outline-none focus:border-indigo-500 bg-indigo-50/30 text-slate-800"
+                  rows={3}
+                  dir={isRTL ? 'rtl' : 'ltr'}
+                  placeholder="분석할 원어 텍스트를 정확하게 수정해주세요."
+                />
+                <p className="text-[10px] text-indigo-500 font-bold mt-1 ml-1">수정한 문구로 AI가 다시 문법을 파싱합니다.</p>
+              </div>
+            ) : isEmptyWords ? (
               <div className="bg-rose-50/50 border border-rose-100 p-4 rounded-xl flex flex-col items-center justify-center mb-3">
                 <AlertCircle className="text-rose-400 mb-2" size={24} />
-                <p className="text-xs text-rose-700 font-bold mb-3">단어 파싱 정보가 누락되었습니다.</p>
+                <p className="text-xs text-rose-700 font-bold mb-3">단어 파싱 정보가 누락되었거나 엉뚱한 문자입니다.</p>
                 <div className="text-sm font-serif text-slate-700 mb-4" dir={isRTL ? 'rtl' : 'ltr'}>{sentence.original}</div>
-                <button 
-                  onClick={() => onReparse(sentence)} 
-                  disabled={reparsingId === sentence.id}
-                  className="bg-indigo-500 hover:bg-indigo-600 text-white font-bold text-xs px-4 py-2 rounded-lg flex items-center gap-1.5 shadow-sm disabled:opacity-50"
-                >
-                  {reparsingId === sentence.id ? <Loader2 size={14} className="animate-spin"/> : <Zap size={14}/>}
-                  AI 강제 파싱하기
-                </button>
+                <div className="flex gap-2">
+                  <button 
+                    onClick={() => { setEditingSentenceId(sentence.id); setEditingSentenceText(sentence.original); }} 
+                    className="bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 font-bold text-xs px-4 py-2 rounded-lg flex items-center gap-1.5 shadow-sm"
+                  >
+                    <Edit3 size={14}/> 텍스트 직접 수정
+                  </button>
+                  <button 
+                    onClick={() => onReparse(sentence)} 
+                    disabled={reparsingId === sentence.id}
+                    className="bg-indigo-500 hover:bg-indigo-600 text-white font-bold text-xs px-4 py-2 rounded-lg flex items-center gap-1.5 shadow-sm disabled:opacity-50"
+                  >
+                    {reparsingId === sentence.id ? <Loader2 size={14} className="animate-spin"/> : <Zap size={14}/>} AI 재분석
+                  </button>
+                </div>
               </div>
             ) : (
               <div className={`flex flex-wrap gap-x-3 gap-y-2 mb-3 ${isRTL ? 'rtl' : 'ltr'}`}>
@@ -613,12 +779,14 @@ function SentencesTab({ sentences, showPhonetics, onAddVocab, globalLang, onDele
               </div>
             )}
 
-            <div className="text-[13px] font-medium text-slate-600 bg-slate-50 px-3 py-2 rounded-xl border border-slate-100 w-fit leading-relaxed">
-              "{sentence.translation}"
-            </div>
+            {!editingSentenceId && (
+              <div className="text-[13px] font-medium text-slate-600 bg-slate-50 px-3 py-2 rounded-xl border border-slate-100 w-fit leading-relaxed">
+                "{sentence.translation}"
+              </div>
+            )}
 
-            {/* 🚀 렌더링 시 기존 데이터에 섞여있는 영어(Present 등)를 cleanGrammarText로 깨끗하게 청소 */}
-            {activeWord && !isEmptyWords && (
+            {/* 고정형 단어 분석 패널 */}
+            {activeWord && !isEmptyWords && !editingSentenceId && (
               <div className="mt-4 pt-4 border-t border-slate-100 animate-in fade-in slide-in-from-top-2 duration-200">
                 <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 shadow-inner">
                   <div className="flex justify-between items-start mb-3">
@@ -656,7 +824,7 @@ function SentencesTab({ sentences, showPhonetics, onAddVocab, globalLang, onDele
                     {['tense', 'voice', 'mood', 'person', 'number', 'gender', 'case'].map(key => {
                       if (!activeWord[key]) return null;
                       const cleanVal = cleanGrammarText(activeWord[key]);
-                      if (!cleanVal) return null; // 빈 값이 되면 숨김
+                      if (!cleanVal) return null; 
                       return (
                         <span key={key} className="bg-slate-200 text-slate-700 text-[10px] font-bold px-2 py-1 rounded-md shadow-sm">
                           {cleanVal}
