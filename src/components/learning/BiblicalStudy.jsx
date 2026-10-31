@@ -63,29 +63,6 @@ const grammarLabels = {
   person: '인칭', number: '수', gender: '성', case: '격' 
 };
 
-// 🚀 기등록 단어를 위한 지능형 형태소 자동 분해 보조 함수 (접두모음, 어간, 어미 추출)
-const getFallbackMorphology = (word) => {
-  if (!word) return null;
-  // 에토스 계열이나 단순과거 접두모음(ἐ-, ἠ-, ᾱ-, Ἓ- 등) 및 어미 패턴 분석
-  const match = word.match(/^([ἐεἠἡἀἁἱὑὓὧᾱᾲᾴᾶᾼᾹ]|ε[ἰἱ])(.+?)(σαμεν|σαν|θη|θην|θης|το|στο|ατε|ετωσαν|ε(ν)?|ον|α|ε|ης|ετο|οντο)$/i);
-  if (match) {
-    return {
-      prefix: match[1],
-      stem: match[2],
-      suffix: match[3]
-    };
-  }
-  // 일반적인 동사 형태 분해 fallback
-  if (word.startsWith('ἐ') || word.startsWith('ἠ') || word.startsWith('ε')) {
-    return {
-      prefix: word[0],
-      stem: word.slice(1, -2),
-      suffix: word.slice(-2)
-    };
-  }
-  return null;
-};
-
 export default function BiblicalStudy({ onBack, onNavigate }) {
   const [biblicalTab, setBiblicalTab] = useState('upload'); 
   const [showPhonetics, setShowPhonetics] = useState(true);
@@ -135,7 +112,6 @@ export default function BiblicalStudy({ onBack, onNavigate }) {
     if (!user) return;
 
     const [sentencesRes, vocabRes, reviewsRes] = await Promise.all([
-      // 🚀 데이터베이스 원본 조회 (등록 순서대로 가져옴)
       supabase.from('biblical_sentences').select('*').eq('user_id', user.id).order('created_at', { ascending: true }),
       supabase.from('biblical_vocab').select('*').eq('user_id', user.id).order('created_at', { ascending: false }),
       supabase.from('biblical_reviews').select('*').eq('user_id', user.id).order('created_at', { ascending: false })
@@ -185,7 +161,7 @@ export default function BiblicalStudy({ onBack, onNavigate }) {
 3. 데이터가 방대할 경우 최대 10문장(또는 표 1개)까지만 추출.
 4. 'language'는 'greek' 또는 'hebrew'.
 5. 각 문장의 'words' 배열에 단어들을 순서대로 담고, 단어 객체에는 원어 텍스트("word"), 사전형("lemma"), 뜻("meaning"), 품사("pos"), 음가/발음("pronunciation")이 필수.
-6. [중요] 문법 속성(시상, 태, 법, 인칭, 수, 격, 성)은 오직 '순수 한글'(예: 제1단순과거, 능동태)로 기재.
+6. [중요] 문법 속성(시상, 태, 법, 인칭, 수, 격, 성)은 오직 '순수 한글'로 기재.
 7. 시상이 '과거/단순과거' 계열인 경우, "morphology": { "prefix": "접두모음", "stem": "어간", "suffix": "어미" } 객체를 추가할 것.
 8. 문장 전체나 연습표의 핵심 시상을 "grammar_tags" 배열에 담을 것.
 
@@ -691,6 +667,9 @@ function BiblicalUploadTab({ onUpload }) {
   );
 }
 
+// ==========================================
+// 🚀 SentencesTab 컴포넌트: 모바일 최적화 (가독성 개선) 및 역순 번호 적용
+// ==========================================
 function SentencesTab({ sentences, savedWordKeys, showPhonetics, onAddVocab, globalLang, onDelete, onBulkDelete, onReparse, reparsingId }) {
   const [selectedWordIds, setSelectedWordIds] = useState(new Set());
   const [activePopupWord, setActivePopupWord] = useState(null); 
@@ -743,7 +722,7 @@ function SentencesTab({ sentences, savedWordKeys, showPhonetics, onAddVocab, glo
         )}
       </div>
 
-      {/* 🚀 문장 번호 역순 정렬 매핑 (먼저 등록한 문장이 문장 1번) */}
+      {/* 🚀 등록된 문장 번호를 역순으로 매핑 (먼저 등록한 문장이 1번) */}
       {sentences.map((sentence, reverseIdx) => {
         const sentenceNumber = sentences.length - reverseIdx;
         const isRTL = sentence.language === 'hebrew';
@@ -754,11 +733,11 @@ function SentencesTab({ sentences, savedWordKeys, showPhonetics, onAddVocab, glo
         const displayTags = Array.from(new Set([...(sentence.grammar_tags || []), ...activeTagsInSentence]));
 
         return (
-          <div key={sentence.id} className={`bg-white p-5 rounded-2xl shadow-sm border relative group transition-colors ${selectedSentenceIds.has(sentence.id) ? 'border-indigo-300 bg-indigo-50/10' : 'border-slate-200'}`}>
+          <div key={sentence.id} className={`bg-white p-4 sm:p-5 rounded-2xl shadow-sm border relative group transition-colors ${selectedSentenceIds.has(sentence.id) ? 'border-indigo-300 bg-indigo-50/10' : 'border-slate-200'}`}>
             {sentence.is_exam_mode && <div className="absolute top-0 right-0 bg-amber-500 text-white text-[10px] font-bold px-3 py-0.5 rounded-tr-2xl rounded-bl-xl shadow-sm z-10">시험 핵심</div>}
             
             <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-4 gap-2 border-b border-slate-100 pb-2">
-              <div className="flex items-center gap-2.5 flex-wrap">
+              <div className="flex items-center gap-2 flex-wrap">
                 <input type="checkbox" checked={selectedSentenceIds.has(sentence.id)} onChange={() => toggleSentenceSelect(sentence.id)} className="w-4 h-4 rounded text-indigo-600 cursor-pointer" />
                 <span className="bg-slate-800 text-white text-[10px] font-bold px-2 py-0.5 rounded">문장 {sentenceNumber}</span>
                 <LanguageBadge language={sentence.language} />
@@ -794,7 +773,7 @@ function SentencesTab({ sentences, savedWordKeys, showPhonetics, onAddVocab, glo
                 </div>
               </div>
             ) : (
-              <div className={`flex flex-wrap gap-x-4 gap-y-5 pt-2 mb-4 ${isRTL ? 'rtl' : 'ltr'}`}>
+              <div className={`flex flex-wrap gap-x-3 gap-y-4 pt-2 mb-4 ${isRTL ? 'rtl' : 'ltr'}`}>
                 {sentence.words.map((item) => {
                   const isSelected = selectedWordIds.has(item.id);
                   const isActive = activePopupWord?.sentenceId === sentence.id && activePopupWord?.wordId === item.id;
@@ -812,7 +791,7 @@ function SentencesTab({ sentences, savedWordKeys, showPhonetics, onAddVocab, glo
                           {item.tense}
                         </span>
                       )}
-                      <span onClick={() => setActivePopupWord(isActive ? null : { sentenceId: sentence.id, wordId: item.id })} className={`cursor-pointer inline-block text-xl md:text-2xl font-serif px-2 py-0.5 rounded transition-all relative z-0 ${wordStyle}`} dir={isRTL ? 'rtl' : 'ltr'} title={isSavedInVocab ? "단어장에 등록된 단어입니다" : ""}>
+                      <span onClick={() => setActivePopupWord(isActive ? null : { sentenceId: sentence.id, wordId: item.id })} className={`cursor-pointer inline-block text-lg sm:text-2xl font-serif px-2 py-0.5 rounded transition-all relative z-0 ${wordStyle}`} dir={isRTL ? 'rtl' : 'ltr'} title={isSavedInVocab ? "단어장에 등록된 단어입니다" : ""}>
                         {item.word || '단어누락'}
                       </span>
                     </span>
@@ -822,65 +801,67 @@ function SentencesTab({ sentences, savedWordKeys, showPhonetics, onAddVocab, glo
             )}
 
             {!editingSentenceId && sentence.translation && (
-              <div className="text-[13px] font-medium text-slate-600 bg-slate-50 px-4 py-2.5 rounded-xl border border-slate-100 w-fit leading-relaxed">
+              <div className="text-[13px] font-medium text-slate-600 bg-slate-50 px-3.5 py-2 rounded-xl border border-slate-100 w-fit leading-relaxed">
                 {sentence.translation.includes('연습문제') ? <span className="text-slate-400 font-bold">[{sentence.translation}]</span> : `"${sentence.translation}"`}
               </div>
             )}
 
+            {/* 🚀 모바일 최적화된 단어 분석 박스 (가독성 및 오버플로우 방지) */}
             {activeWord && !isEmptyWords && !editingSentenceId && (() => {
               const isSavedInVocab = savedWordKeys.has(activeWord.word);
               const activePronunciation = activeWord.pronunciation || getFallbackPronunciation(activeWord.word);
 
               return (
                 <div className="mt-4 pt-4 border-t border-slate-100 animate-in fade-in slide-in-from-top-2 duration-200">
-                  <div className="bg-slate-50 border border-slate-200 rounded-2xl p-5 shadow-inner">
+                  <div className="bg-slate-50 border border-slate-200 rounded-2xl p-3 sm:p-5 shadow-inner">
                     
-                    <div className="flex justify-between items-center mb-4 border-b border-slate-200/60 pb-3">
-                      <div className="flex items-center gap-2">
-                        <span className="text-2xl font-serif text-indigo-900 font-bold" dir={isRTL ? 'rtl' : 'ltr'}>{activeWord.word}</span>
+                    {/* 상단 단어 및 버튼 영역 (모바일 줄바꿈 최적화) */}
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-3 sm:mb-4 border-b border-slate-200/60 pb-3 gap-2">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-xl sm:text-2xl font-serif text-indigo-900 font-bold" dir={isRTL ? 'rtl' : 'ltr'}>{activeWord.word}</span>
                         {showPhonetics && activePronunciation && (
-                          <span className="text-[11px] bg-indigo-100 text-indigo-700 font-bold px-2 py-1 rounded-lg">
+                          <span className="text-[11px] bg-indigo-100 text-indigo-700 font-bold px-2 py-0.5 rounded-lg">
                             [{activePronunciation}]
                           </span>
                         )}
                       </div>
                       
-                      <div className="flex items-center gap-2">
-                        <button 
-                          onClick={(e) => { 
-                            e.stopPropagation(); 
-                            if (!isSavedInVocab) {
-                               const wordToAdd = { ...activeWord, language: sentence.language, sentenceContext: sentence.original, sentenceTranslation: sentence.translation };
-                               onAddVocab([wordToAdd]);
-                            }
-                          }} 
-                          disabled={isSavedInVocab}
-                          className={`flex items-center gap-1.5 text-[11px] font-bold px-4 py-2 rounded-lg border transition-colors shadow-sm ${isSavedInVocab ? 'bg-emerald-50 text-emerald-700 border-emerald-200 cursor-not-allowed' : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-100'}`}
-                        >
-                          {isSavedInVocab ? <CheckSquare size={14}/> : <Plus size={14}/>} {isSavedInVocab ? '단어장에 있음' : '단어장 바로 담기'}
-                        </button>
-                      </div>
+                      <button 
+                        onClick={(e) => { 
+                          e.stopPropagation(); 
+                          if (!isSavedInVocab) {
+                             const wordToAdd = { ...activeWord, language: sentence.language, sentenceContext: sentence.original, sentenceTranslation: sentence.translation };
+                             onAddVocab([wordToAdd]);
+                          }
+                        }} 
+                        disabled={isSavedInVocab}
+                        className={`self-start sm:self-auto flex items-center gap-1.5 text-[11px] font-bold px-3 py-1.5 sm:px-4 sm:py-2 rounded-lg border transition-colors shadow-sm ${isSavedInVocab ? 'bg-emerald-50 text-emerald-700 border-emerald-200 cursor-not-allowed' : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-100'}`}
+                      >
+                        {isSavedInVocab ? <CheckSquare size={14}/> : <Plus size={14}/>} {isSavedInVocab ? '단어장에 있음' : '단어장 바로 담기'}
+                      </button>
                     </div>
                     
-                    <div className="grid grid-cols-[80px_1fr_80px_1fr] gap-x-2 gap-y-3 text-[13px] mb-3 items-center">
+                    {/* 정보 그리드 영역 (모바일 1열 대응) */}
+                    <div className="grid grid-cols-1 sm:grid-cols-[70px_1fr] gap-x-3 gap-y-2 text-xs sm:text-[13px] mb-3 items-center bg-white p-3 rounded-xl border border-slate-100">
                       <div className="text-slate-400 font-bold">원형</div>
-                      <div className="font-serif font-bold text-slate-800 text-base">{activeWord.lemma}</div>
+                      <div className="font-serif font-bold text-slate-800 text-sm sm:text-base">{activeWord.lemma}</div>
                       
                       <div className="text-slate-400 font-bold">품사</div>
                       <div className="font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded w-fit">{activeWord.pos || '동사'}</div>
                       
                       <div className="text-slate-400 font-bold">의미</div>
-                      <div className="font-bold text-emerald-700 col-span-3">{activeWord.meaning}</div>
+                      <div className="font-bold text-emerald-700">{activeWord.meaning}</div>
                     </div>
                     
-                    <div className="flex flex-wrap gap-1.5 pt-3 border-t border-slate-200/60">
-                      <AlignLeft size={14} className="text-slate-400 mt-0.5 mr-1" />
+                    {/* 문법 속성 뱃지 영역 */}
+                    <div className="flex flex-wrap gap-1.5 pt-2 border-t border-slate-200/60">
+                      <AlignLeft size={14} className="text-slate-400 mt-1 mr-1 hidden sm:inline-block" />
                       {Object.keys(grammarLabels).map(key => {
                         if (!activeWord[key]) return null;
                         const cleanVal = cleanGrammarText(activeWord[key]);
                         if (!cleanVal) return null; 
                         return (
-                          <span key={key} className="bg-white text-slate-700 text-[11px] font-bold px-2.5 py-1 rounded-md shadow-sm border border-slate-100">
+                          <span key={key} className="bg-white text-slate-700 text-[11px] font-bold px-2 py-1 rounded-md shadow-sm border border-slate-200">
                             {cleanVal}
                           </span>
                         );
@@ -999,13 +980,11 @@ const getFallbackPronunciation = (word) => {
 };
 
 // ==========================================
-// 🚀 WordCard 컴포넌트: 기등록 단어 형태소 분해 자가 치유 및 음가 토글 완벽 연동
+// 🚀 WordCard 컴포넌트: 기등록 단어 형태소 자동 분해 및 음가 연동
 // ==========================================
 function WordCard({ item, showPhonetics, onRemove }) {
   const isRTL = item.language === 'hebrew';
   const pronunciationText = item.pronunciation || getFallbackPronunciation(item.word);
-
-  // 🚀 기등록된 단어에 morphology가 없어도 실시간으로 분해 데이터 생성 (접두모음어간어미 버그 방지)
   const morph = item.morphology || getFallbackMorphology(item.word);
 
   return (
@@ -1022,7 +1001,6 @@ function WordCard({ item, showPhonetics, onRemove }) {
         </div>
       )}
 
-      {/* 🚀 실제 헬라어 단어를 형태소 색상별로 분해하여 렌더링 (한글 글자 대체 버그 방지) */}
       {morph && morph.prefix && morph.stem && morph.suffix ? (
         <div className="text-xl font-serif mb-1 text-center flex justify-center items-baseline gap-[1px]" dir={isRTL ? 'rtl' : 'ltr'}>
           <span className="text-rose-500 font-bold" title="접두모음 (과거표지)">{morph.prefix}</span>
@@ -1033,7 +1011,6 @@ function WordCard({ item, showPhonetics, onRemove }) {
         <div className="text-xl font-serif text-indigo-900 mb-1 mt-1.5 text-center" dir={isRTL ? 'rtl' : 'ltr'}>{item.word}</div>
       )}
       
-      {/* 🚀 상단 음가 토글 상태에 따른 발음 노출/비노출 연동 (기등록 단어 포함) */}
       {showPhonetics && pronunciationText && (
         <div className="text-xs bg-indigo-50 text-indigo-600 font-bold px-2.5 py-0.5 rounded-lg text-center w-fit mx-auto mb-1.5">
           [{pronunciationText}]
