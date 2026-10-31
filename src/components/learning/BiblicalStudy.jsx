@@ -63,7 +63,7 @@ const grammarLabels = {
   person: '인칭', number: '수', gender: '성', case: '격' 
 };
 
-// 🚀 기등록 단어를 위한 지능형 형태소 자동 분해 및 발음 보조 함수 (중복 선언 방지: 최상단에 1회만 선언)
+// 🚀 기등록 단어를 위한 지능형 형태소 자동 분해 및 발음 보조 함수
 const getFallbackPronunciation = (word) => {
   if (!word) return '';
   if (word.includes('ἐλύσαμεν')) return '엘뤼사멘';
@@ -144,7 +144,6 @@ export default function BiblicalStudy({ onBack, onNavigate }) {
     if (!user) return;
 
     const [sentencesRes, vocabRes, reviewsRes] = await Promise.all([
-      // 🚀 최근 문장이 위로 오도록 정렬 (ascending: false)
       supabase.from('biblical_sentences').select('*').eq('user_id', user.id).order('created_at', { ascending: false }),
       supabase.from('biblical_vocab').select('*').eq('user_id', user.id).order('created_at', { ascending: false }),
       supabase.from('biblical_reviews').select('*').eq('user_id', user.id).order('created_at', { ascending: false })
@@ -753,7 +752,6 @@ function SentencesTab({ sentences, savedWordKeys, showPhonetics, onAddVocab, glo
       </div>
 
       {sentences.map((sentence, reverseIdx) => {
-        // 🚀 먼저 등록한 문장이 1번, 최근 등록된 문장이 마지막 번호가 되도록 역순 정방향 계산
         const sentenceNumber = sentences.length - reverseIdx; 
         const isRTL = sentence.language === 'hebrew';
         const activeWord = sentence.words?.find(w => activePopupWord?.sentenceId === sentence.id && activePopupWord?.wordId === w.id);
@@ -836,7 +834,7 @@ function SentencesTab({ sentences, savedWordKeys, showPhonetics, onAddVocab, glo
               </div>
             )}
 
-            {/* 🚀 모바일 최적화 및 레이아웃 개선된 단어 분석 박스 */}
+            {/* 🚀 모바일 최적화된 단어 분석 박스 (음가 위치 조정 및 품사명 가로 고정) */}
             {activeWord && !isEmptyWords && !editingSentenceId && (() => {
               const isSavedInVocab = savedWordKeys.has(activeWord.word);
               const activePronunciation = activeWord.pronunciation || getFallbackPronunciation(activeWord.word);
@@ -845,19 +843,20 @@ function SentencesTab({ sentences, savedWordKeys, showPhonetics, onAddVocab, glo
                 <div className="mt-4 pt-4 border-t border-slate-100 animate-in fade-in slide-in-from-top-2 duration-200">
                   <div className="bg-slate-50 border border-slate-200 rounded-2xl p-3 sm:p-5 shadow-inner overflow-hidden">
                     
-                    {/* 상단 단어 및 음가는 좌측에, 버튼은 우측 끝에 배치 */}
-                    <div className="flex flex-row items-center justify-between mb-3 sm:mb-4 border-b border-slate-200/60 pb-3 gap-3">
+                    {/* 상단 단어 및 버튼: 단어/음가 묶음과 우측 끝 담기 버튼 배치 */}
+                    <div className="flex flex-row items-start sm:items-center justify-between mb-3 sm:mb-4 border-b border-slate-200/60 pb-3 gap-3">
                       
-                      <div className="flex flex-row items-center gap-2 flex-wrap flex-1">
-                        <span className="text-xl sm:text-2xl font-serif text-indigo-900 font-bold break-all" dir={isRTL ? 'rtl' : 'ltr'}>{activeWord.word}</span>
-                        {/* 🚀 모바일에서도 찌그러지거나 아래로 떨어지지 않도록 w-max 적용 */}
+                      {/* 🚀 음가가 모바일에서 깨지지 않고 단어 바로 아래로 자연스럽게 정렬되도록 flex-col 활용 */}
+                      <div className="flex flex-col sm:flex-row sm:items-baseline gap-1.5 sm:gap-2.5 flex-1 min-w-0">
+                        <span className="text-2xl font-serif text-indigo-900 font-bold break-all leading-none" dir={isRTL ? 'rtl' : 'ltr'}>{activeWord.word}</span>
                         {showPhonetics && activePronunciation && (
-                          <span className="text-[11px] sm:text-xs bg-indigo-100 text-indigo-700 font-bold px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-lg w-max shadow-sm">
+                          <span className="text-[11px] sm:text-xs bg-indigo-100 text-indigo-700 font-bold px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-lg w-max shadow-sm whitespace-nowrap">
                             [{activePronunciation}]
                           </span>
                         )}
                       </div>
                       
+                      {/* 담기 버튼 오른쪽 끝 고정 (shrink-0 로 찌그러짐 방지) */}
                       <button 
                         onClick={(e) => { 
                           e.stopPropagation(); 
@@ -867,31 +866,31 @@ function SentencesTab({ sentences, savedWordKeys, showPhonetics, onAddVocab, glo
                           }
                         }} 
                         disabled={isSavedInVocab}
-                        className={`shrink-0 flex items-center gap-1.5 text-[11px] font-bold px-3 py-1.5 sm:px-4 sm:py-2 rounded-lg border transition-colors shadow-sm whitespace-nowrap ${isSavedInVocab ? 'bg-emerald-50 text-emerald-700 border-emerald-200 cursor-not-allowed' : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-100'}`}
+                        className={`shrink-0 flex items-center gap-1.5 text-[11px] font-bold px-3 py-1.5 sm:px-4 sm:py-2 rounded-lg border transition-colors shadow-sm whitespace-nowrap self-start sm:self-auto mt-1 sm:mt-0 ${isSavedInVocab ? 'bg-emerald-50 text-emerald-700 border-emerald-200 cursor-not-allowed' : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-100'}`}
                       >
                         {isSavedInVocab ? <CheckSquare size={14}/> : <Plus size={14}/>} {isSavedInVocab ? '단어장에 있음' : '단어장 바로 담기'}
                       </button>
                     </div>
                     
-                    {/* 🚀 정보 패널: 모바일 가로 공간 100% 활용 */}
-                    <div className="flex flex-col gap-2.5 text-xs sm:text-[13px] mb-4 bg-white p-3 sm:p-4 rounded-xl border border-slate-100 shadow-sm">
-                      <div className="flex items-start gap-3">
+                    {/* 🚀 품사명 및 정보: 100% 가변 Flex 박스로 품사명 및 뱃지 가로 공간 확실히 확보 */}
+                    <div className="flex flex-col gap-2 text-xs sm:text-[13px] mb-4 bg-white p-3 sm:p-4 rounded-xl border border-slate-100 shadow-sm w-full">
+                      <div className="flex flex-row items-center gap-2 sm:gap-3 w-full">
                         <span className="text-slate-400 font-bold shrink-0 w-10 sm:w-14">원형</span>
-                        {/* 원형과 품사 뱃지를 한 줄에 나란히 배치 */}
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span className="font-serif font-bold text-slate-800 text-[14px] sm:text-base break-words">{activeWord.lemma}</span>
-                          <span className="font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded text-[11px] border border-indigo-100 shadow-sm break-keep w-max">
+                        {/* 🚀 원형과 품사 뱃지를 가로로 나란히 배치 */}
+                        <div className="flex flex-row items-center gap-2 flex-1 min-w-0 overflow-hidden">
+                          <span className="font-serif font-bold text-slate-800 text-[14px] sm:text-base truncate">{activeWord.lemma}</span>
+                          <span className="font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded text-[11px] border border-indigo-100 shadow-sm shrink-0 whitespace-nowrap">
                             {activeWord.pos || '동사'}
                           </span>
                         </div>
                       </div>
-                      <div className="flex items-start gap-3 pt-1 border-t border-slate-50">
-                        <span className="text-slate-400 font-bold shrink-0 w-10 sm:w-14">의미</span>
-                        <span className="font-bold text-emerald-700 break-words">{activeWord.meaning}</span>
+                      <div className="flex flex-row items-start gap-2 sm:gap-3 w-full pt-1 border-t border-slate-50">
+                        <span className="text-slate-400 font-bold shrink-0 w-10 sm:w-14 mt-1">의미</span>
+                        <span className="font-bold text-emerald-700 break-words flex-1 mt-1">{activeWord.meaning}</span>
                       </div>
                     </div>
                     
-                    {/* 🚀 문법 속성 뱃지 영역 (타이틀 삭제) */}
+                    {/* 문법 속성 뱃지 영역 (타이틀 삭제) */}
                     <div className="flex flex-wrap gap-1.5 pt-1 border-t border-slate-200/60 mt-3 sm:pt-3">
                       <AlignLeft size={14} className="text-slate-400 mt-1 mr-1 hidden sm:inline-block shrink-0" />
                       {Object.keys(grammarLabels).map(key => {
@@ -1006,6 +1005,9 @@ function LanguageBadge({ language }) {
   return <span className={`text-[10px] font-bold px-2 py-0.5 rounded uppercase w-fit ${isHebrew ? 'bg-amber-100 text-amber-800' : 'bg-blue-100 text-blue-800'}`}>{isHebrew ? '히브리어' : '헬라어'}</span>;
 }
 
+// ==========================================
+// 🚀 WordCard 컴포넌트 (품사 뱃지 우측 이동 및 모바일 최적화)
+// ==========================================
 function WordCard({ item, showPhonetics, onRemove }) {
   const isRTL = item.language === 'hebrew';
   const pronunciationText = item.pronunciation || getFallbackPronunciation(item.word);
@@ -1019,22 +1021,24 @@ function WordCard({ item, showPhonetics, onRemove }) {
       {item.lemma && (
         <div className="flex justify-center items-center gap-1.5 mb-1 mt-2">
           <span className="bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded text-[10px] font-bold">원형</span>
-          <span className="font-serif text-slate-600 text-sm" dir={isRTL ? 'rtl' : 'ltr'}>{item.lemma}</span>
+          <span className="font-serif text-slate-600 text-[13px] sm:text-sm" dir={isRTL ? 'rtl' : 'ltr'}>{item.lemma}</span>
           <ArrowRight size={12} className="text-indigo-300" />
           <span className="bg-indigo-50 text-indigo-600 px-1.5 py-0.5 rounded text-[10px] font-bold">과거</span>
         </div>
       )}
 
+      {/* 형태소 분해 렌더링 */}
       {morph && morph.prefix && morph.stem && morph.suffix ? (
-        <div className="text-xl sm:text-2xl font-serif mb-1 text-center flex justify-center items-baseline gap-[1px]" dir={isRTL ? 'rtl' : 'ltr'}>
+        <div className="text-2xl font-serif mb-1 text-center flex justify-center items-baseline gap-[1px]" dir={isRTL ? 'rtl' : 'ltr'}>
           <span className="text-rose-500 font-bold" title="접두모음 (과거표지)">{morph.prefix}</span>
           <span className="text-indigo-900" title="어간">{morph.stem}</span>
           <span className="text-emerald-500 font-bold" title="시상/인칭어미">{morph.suffix}</span>
         </div>
       ) : (
-        <div className="text-xl sm:text-2xl font-serif text-indigo-900 mb-1 mt-1.5 text-center" dir={isRTL ? 'rtl' : 'ltr'}>{item.word}</div>
+        <div className="text-2xl font-serif text-indigo-900 mb-1 mt-1.5 text-center" dir={isRTL ? 'rtl' : 'ltr'}>{item.word}</div>
       )}
       
+      {/* 음가 노출 중앙 정렬 */}
       {showPhonetics && pronunciationText && (
         <div className="text-[11px] sm:text-xs bg-indigo-50 text-indigo-600 font-bold px-2.5 py-0.5 sm:py-1 rounded-lg text-center w-max mx-auto mb-2.5 shadow-sm">
           [{pronunciationText}]
@@ -1042,16 +1046,20 @@ function WordCard({ item, showPhonetics, onRemove }) {
       )}
       
       <div className="space-y-1.5 text-xs sm:text-[13px] mt-auto border-t border-slate-100 pt-2 mb-1" dir="ltr">
-        <div className="flex justify-between items-center bg-slate-50 p-2 rounded-lg">
-          <span className="text-slate-500 font-bold shrink-0">원형</span>
-          <div className="flex items-center gap-2">
-            <span className="font-serif font-bold text-slate-900 text-[13px] sm:text-[14px]" dir={isRTL ? 'rtl' : 'ltr'}>{item.lemma}</span>
-            <span className="font-bold text-indigo-600 bg-indigo-50 px-1.5 py-0.5 rounded text-[10px] shadow-sm border border-indigo-100 break-keep w-max">{item.pos || '동사'}</span>
+        {/* 🚀 원형 옆에 품사 뱃지 고정 (타이틀 없음) */}
+        <div className="flex flex-row items-center justify-between bg-slate-50 p-2 rounded-lg w-full">
+          <span className="text-slate-500 font-bold shrink-0 w-10 sm:w-12">원형</span>
+          <div className="flex flex-row items-center gap-1.5 flex-1 justify-end min-w-0 overflow-hidden">
+            <span className="font-serif font-bold text-slate-900 text-[13px] sm:text-[14px] truncate" dir={isRTL ? 'rtl' : 'ltr'}>{item.lemma}</span>
+            <span className="font-bold text-indigo-600 bg-indigo-50 px-1.5 py-0.5 rounded text-[10px] shadow-sm border border-indigo-100 shrink-0 whitespace-nowrap">
+              {item.pos || '동사'}
+            </span>
           </div>
         </div>
-        <div className="flex justify-between items-start pt-1.5 px-1.5 border-t border-slate-50">
-          <span className="text-slate-400 font-bold shrink-0">의미</span>
-          <span className="font-bold text-emerald-700 text-right break-words">{item.meaning}</span>
+        
+        <div className="flex justify-between items-start pt-1.5 px-1.5 border-t border-slate-50 w-full">
+          <span className="text-slate-400 font-bold shrink-0 w-10 sm:w-12">의미</span>
+          <span className="font-bold text-emerald-700 text-right break-words flex-1">{item.meaning}</span>
         </div>
         
         {/* 🚀 타이틀 없는 문법 속성 뱃지 영역 */}
@@ -1177,15 +1185,19 @@ function DrillTab({ queue, mode, showPhonetics, onComplete, onFail }) {
             {mode === 'find_word' ? (
               <div className="bg-slate-50 p-4 sm:p-6 rounded-2xl border border-slate-200 shadow-inner mb-4 text-left">
                  <h4 className="font-bold text-slate-700 mb-4 pb-2 border-b border-slate-200 text-sm">다음 분석에 해당하는 헬라어 단어를 고르시오.</h4>
-                 <div className="flex flex-col gap-2">
-                   <div className="bg-white p-3 rounded-lg border border-slate-100 shadow-sm flex items-center gap-2 text-sm">
-                     <span className="text-slate-400 font-bold shrink-0 w-12 sm:w-14">원형</span>
-                     <span className="font-serif font-bold text-slate-800 text-base break-all">{currentItem.lemma}</span>
-                     <span className="font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded text-xs border border-indigo-100 shadow-sm w-max break-keep">{currentItem.pos || '동사'}</span>
+                 <div className="flex flex-col gap-2.5">
+                   {/* 🚀 훈련 문제 화면에서도 품사명 뱃지를 원형 옆에 고정 (타이틀 제거) */}
+                   <div className="bg-white p-3 rounded-lg border border-slate-100 shadow-sm flex flex-row items-center w-full">
+                     <span className="text-slate-400 font-bold shrink-0 w-10 sm:w-12 text-sm">원형</span>
+                     <div className="flex flex-row items-center gap-1.5 flex-1 min-w-0 overflow-hidden">
+                       <span className="font-serif font-bold text-slate-800 text-base truncate">{currentItem.lemma}</span>
+                       <span className="font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded text-xs border border-indigo-100 shadow-sm shrink-0 whitespace-nowrap">{currentItem.pos || '동사'}</span>
+                     </div>
                    </div>
-                   <div className="bg-white p-3 rounded-lg border border-slate-100 shadow-sm flex items-start gap-2 text-sm">
-                     <span className="text-slate-400 font-bold shrink-0 w-12 sm:w-14">의미</span>
-                     <span className="font-bold text-emerald-700 break-words">{currentItem.meaning}</span>
+                   
+                   <div className="bg-white p-3 rounded-lg border border-slate-100 shadow-sm flex items-start gap-2 text-sm w-full">
+                     <span className="text-slate-400 font-bold shrink-0 w-10 sm:w-12">의미</span>
+                     <span className="font-bold text-emerald-700 break-words flex-1">{currentItem.meaning}</span>
                    </div>
                    
                    <div className="bg-white p-3 sm:p-4 rounded-lg border border-slate-100 shadow-sm">
@@ -1196,7 +1208,7 @@ function DrillTab({ queue, mode, showPhonetics, onComplete, onFail }) {
                           const cleanVal = cleanGrammarText(currentItem[key]);
                           if (!cleanVal) return null;
                           return (
-                            <span key={key} className="bg-indigo-50 text-indigo-700 text-xs font-bold px-2 py-1 rounded-md border border-indigo-100 shadow-sm whitespace-nowrap">
+                            <span key={key} className="bg-indigo-50 text-indigo-700 text-xs font-bold px-2.5 py-1 rounded-md border border-indigo-100 shadow-sm whitespace-nowrap">
                               {cleanVal}
                             </span>
                           );
@@ -1206,16 +1218,17 @@ function DrillTab({ queue, mode, showPhonetics, onComplete, onFail }) {
                  </div>
               </div>
             ) : (
-              <div className="flex flex-col items-center justify-center gap-1.5 mb-2">
+              <div className="flex flex-col items-center justify-center gap-2 mb-2 w-full">
                 {morph && morph.prefix && morph.stem && morph.suffix ? (
-                  <div className="text-4xl sm:text-5xl font-serif text-center flex justify-center items-baseline gap-[1px]" dir={isRTL ? 'rtl' : 'ltr'}>
+                  <div className="text-4xl sm:text-5xl font-serif text-center flex justify-center items-baseline gap-[1px] break-all px-2" dir={isRTL ? 'rtl' : 'ltr'}>
                     <span className="text-rose-500 font-bold">{morph.prefix}</span>
                     <span className="text-slate-900">{morph.stem}</span>
                     <span className="text-emerald-500 font-bold">{morph.suffix}</span>
                   </div>
                 ) : (
-                  <div className="text-4xl sm:text-5xl font-serif text-slate-900 text-center" dir={isRTL ? 'rtl' : 'ltr'}>{currentItem.word}</div>
+                  <div className="text-4xl sm:text-5xl font-serif text-slate-900 text-center break-all px-2" dir={isRTL ? 'rtl' : 'ltr'}>{currentItem.word}</div>
                 )}
+                {/* 🚀 음가 모바일 하단 깨짐 방지 위치 고정 */}
                 {showPhonetics && pronunciationText && (
                   <div className="text-xs sm:text-[13px] font-bold text-indigo-600 bg-indigo-50 px-3 py-1 rounded-lg w-max shadow-sm border border-indigo-100">
                     [{pronunciationText}]
