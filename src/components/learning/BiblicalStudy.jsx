@@ -161,7 +161,7 @@ export default function BiblicalStudy({ onBack, onNavigate }) {
 3. 데이터가 방대할 경우 최대 10문장(또는 표 1개)까지만 추출.
 4. 'language'는 'greek' 또는 'hebrew'.
 5. 각 문장의 'words' 배열에 단어들을 순서대로 담고, 단어 객체에는 원어 텍스트("word"), 사전형("lemma"), 뜻("meaning"), 품사("pos"), 음가/발음("pronunciation")이 필수.
-6. [중요] 문법 속성(시상, 태, 법, 인칭, 수, 격, 성)은 오직 '순수 한글'로 기재.
+6. [중요] 문법 속성(시상, 태, 법, 인칭, 수, 격, 성)은 오직 '순수 한글'(예: 제1단순과거, 능동태)로 기재.
 7. 시상이 '과거/단순과거' 계열인 경우, "morphology": { "prefix": "접두모음", "stem": "어간", "suffix": "어미" } 객체를 추가할 것.
 8. 문장 전체나 연습표의 핵심 시상을 "grammar_tags" 배열에 담을 것.
 
@@ -667,9 +667,6 @@ function BiblicalUploadTab({ onUpload }) {
   );
 }
 
-// ==========================================
-// 🚀 SentencesTab 컴포넌트: 모바일 최적화 (가독성 개선) 및 역순 번호 적용
-// ==========================================
 function SentencesTab({ sentences, savedWordKeys, showPhonetics, onAddVocab, globalLang, onDelete, onBulkDelete, onReparse, reparsingId }) {
   const [selectedWordIds, setSelectedWordIds] = useState(new Set());
   const [activePopupWord, setActivePopupWord] = useState(null); 
@@ -722,7 +719,6 @@ function SentencesTab({ sentences, savedWordKeys, showPhonetics, onAddVocab, glo
         )}
       </div>
 
-      {/* 🚀 등록된 문장 번호를 역순으로 매핑 (먼저 등록한 문장이 1번) */}
       {sentences.map((sentence, reverseIdx) => {
         const sentenceNumber = sentences.length - reverseIdx;
         const isRTL = sentence.language === 'hebrew';
@@ -806,21 +802,21 @@ function SentencesTab({ sentences, savedWordKeys, showPhonetics, onAddVocab, glo
               </div>
             )}
 
-            {/* 🚀 모바일 최적화된 단어 분석 박스 (가독성 및 오버플로우 방지) */}
+            {/* 🚀 모바일 최적화된 단어 분석 박스 (품사명 가로 고정 및 오버플로우 방지) */}
             {activeWord && !isEmptyWords && !editingSentenceId && (() => {
               const isSavedInVocab = savedWordKeys.has(activeWord.word);
               const activePronunciation = activeWord.pronunciation || getFallbackPronunciation(activeWord.word);
 
               return (
                 <div className="mt-4 pt-4 border-t border-slate-100 animate-in fade-in slide-in-from-top-2 duration-200">
-                  <div className="bg-slate-50 border border-slate-200 rounded-2xl p-3 sm:p-5 shadow-inner">
+                  <div className="bg-slate-50 border border-slate-200 rounded-2xl p-3 sm:p-5 shadow-inner overflow-hidden">
                     
-                    {/* 상단 단어 및 버튼 영역 (모바일 줄바꿈 최적화) */}
+                    {/* 상단 단어 및 음가 (모바일 음가 아래 배치) */}
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-3 sm:mb-4 border-b border-slate-200/60 pb-3 gap-2">
-                      <div className="flex items-center gap-2 flex-wrap">
+                      <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2.5">
                         <span className="text-xl sm:text-2xl font-serif text-indigo-900 font-bold" dir={isRTL ? 'rtl' : 'ltr'}>{activeWord.word}</span>
                         {showPhonetics && activePronunciation && (
-                          <span className="text-[11px] bg-indigo-100 text-indigo-700 font-bold px-2 py-0.5 rounded-lg">
+                          <span className="text-[11px] bg-indigo-100 text-indigo-700 font-bold px-2 py-0.5 rounded-lg w-fit">
                             [{activePronunciation}]
                           </span>
                         )}
@@ -841,27 +837,27 @@ function SentencesTab({ sentences, savedWordKeys, showPhonetics, onAddVocab, glo
                       </button>
                     </div>
                     
-                    {/* 정보 그리드 영역 (모바일 1열 대응) */}
-                    <div className="grid grid-cols-1 sm:grid-cols-[70px_1fr] gap-x-3 gap-y-2 text-xs sm:text-[13px] mb-3 items-center bg-white p-3 rounded-xl border border-slate-100">
-                      <div className="text-slate-400 font-bold">원형</div>
-                      <div className="font-serif font-bold text-slate-800 text-sm sm:text-base">{activeWord.lemma}</div>
+                    {/* 🚀 품사명 및 정보 그리드 (모바일 1열 대응 및 가로 고정 공간 확보) */}
+                    <div className="grid grid-cols-[60px_1fr] sm:grid-cols-[70px_1fr] gap-x-3 gap-y-2 text-xs sm:text-[13px] mb-3 items-center bg-white p-3 rounded-xl border border-slate-100 overflow-x-auto">
+                      <div className="text-slate-400 font-bold shrink-0">원형</div>
+                      <div className="font-serif font-bold text-slate-800 text-sm sm:text-base break-all">{activeWord.lemma}</div>
                       
-                      <div className="text-slate-400 font-bold">품사</div>
-                      <div className="font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded w-fit">{activeWord.pos || '동사'}</div>
+                      <div className="text-slate-400 font-bold shrink-0">품사</div>
+                      <div className="font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded w-fit whitespace-nowrap">{activeWord.pos || '동사'}</div>
                       
-                      <div className="text-slate-400 font-bold">의미</div>
-                      <div className="font-bold text-emerald-700">{activeWord.meaning}</div>
+                      <div className="text-slate-400 font-bold shrink-0">의미</div>
+                      <div className="font-bold text-emerald-700 break-words">{activeWord.meaning}</div>
                     </div>
                     
                     {/* 문법 속성 뱃지 영역 */}
                     <div className="flex flex-wrap gap-1.5 pt-2 border-t border-slate-200/60">
-                      <AlignLeft size={14} className="text-slate-400 mt-1 mr-1 hidden sm:inline-block" />
+                      <AlignLeft size={14} className="text-slate-400 mt-1 mr-1 hidden sm:inline-block shrink-0" />
                       {Object.keys(grammarLabels).map(key => {
                         if (!activeWord[key]) return null;
                         const cleanVal = cleanGrammarText(activeWord[key]);
                         if (!cleanVal) return null; 
                         return (
-                          <span key={key} className="bg-white text-slate-700 text-[11px] font-bold px-2 py-1 rounded-md shadow-sm border border-slate-200">
+                          <span key={key} className="bg-white text-slate-700 text-[11px] font-bold px-2 py-1 rounded-md shadow-sm border border-slate-200 whitespace-nowrap">
                             {cleanVal}
                           </span>
                         );
@@ -876,7 +872,7 @@ function SentencesTab({ sentences, savedWordKeys, showPhonetics, onAddVocab, glo
       })}
 
       {selectedWordIds.size > 0 && (
-        <div className="fixed bottom-6 left-1/2 transform -translate-x-1/2 z-[100] bg-slate-900 text-white px-5 py-2.5 rounded-full shadow-2xl flex items-center justify-between gap-4 animate-in slide-in-from-bottom-4 w-[90%] max-w-sm border border-slate-700">
+        <div className="fixed bottom-6 left-1/2 transform -translate-x-1/2 z-[100] bg-slate-900 text-white px-5 py-2.5 rounded-full shadow-xl flex items-center justify-between gap-4 animate-in slide-in-from-bottom-4 w-[90%] max-w-sm border border-slate-700">
           <div className="flex items-center gap-2.5">
             <div className="bg-indigo-500 text-white w-6 h-6 rounded-full flex items-center justify-center font-bold text-xs">{selectedWordIds.size}</div>
             <span className="font-bold text-xs">단어 선택됨</span>
@@ -979,9 +975,27 @@ const getFallbackPronunciation = (word) => {
   return '';
 };
 
-// ==========================================
-// 🚀 WordCard 컴포넌트: 기등록 단어 형태소 자동 분해 및 음가 연동
-// ==========================================
+// 🚀 기등록 단어를 위한 지능형 형태소 자동 분해 보조 함수
+const getFallbackMorphology = (word) => {
+  if (!word) return null;
+  const match = word.match(/^([ἐεἠἡἀἁἱὑὓὧᾱᾲᾴᾶᾼᾹ]|ε[ἰἱ])(.+?)(σαμεν|σαν|θη|θην|θης|το|στο|ατε|ετωσαν|ε(ν)?|ον|α|ε|ης|ετο|οντο)$/i);
+  if (match) {
+    return {
+      prefix: match[1],
+      stem: match[2],
+      suffix: match[3]
+    };
+  }
+  if (word.startsWith('ἐ') || word.startsWith('ἠ') || word.startsWith('ε')) {
+    return {
+      prefix: word[0],
+      stem: word.slice(1, -2),
+      suffix: word.slice(-2)
+    };
+  }
+  return null;
+};
+
 function WordCard({ item, showPhonetics, onRemove }) {
   const isRTL = item.language === 'hebrew';
   const pronunciationText = item.pronunciation || getFallbackPronunciation(item.word);
