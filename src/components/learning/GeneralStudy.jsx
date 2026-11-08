@@ -5,7 +5,7 @@ import { getChoseong } from '../../utils/learningData';
 import { 
   UploadCloud, List, Repeat, PenTool, Brain, CheckSquare, 
   ArrowLeft, Lightbulb, ChevronRight, CheckCircle, XCircle,
-  FileText, RefreshCw, Trash2, ChevronUp
+  FileText, RefreshCw, Trash2, ChevronUp, Search, X // 🚀 에러 원인: X 아이콘 import 누락 복구됨
 } from 'lucide-react';
 
 const parseAIResponse = (text) => {
@@ -86,14 +86,13 @@ export default function GeneralStudy({ onBack, onNavigate }) {
   const [generalData, setGeneralData] = useState([]); 
   const [quizData, setQuizData] = useState([]); 
   const [generalReviewList, setGeneralReviewList] = useState([]); 
+  const [registeredCourses, setRegisteredCourses] = useState([]); 
 
-  // 🚀 플로팅 상단 이동 버튼 상태 추가
   const [showTopBtn, setShowTopBtn] = useState(false);
 
   useEffect(() => {
     fetchMyData();
 
-    // 🚀 스크롤 이벤트 감지
     const handleScroll = () => {
       const currentScrollY = document.documentElement.scrollTop || document.body.scrollTop || document.querySelector('main')?.scrollTop || 0;
       if (currentScrollY > 300) {
@@ -126,11 +125,11 @@ export default function GeneralStudy({ onBack, onNavigate }) {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
-    const [essaysRes, quizzesRes, reviewsRes] = await Promise.all([
-      // 🚀 모든 쿼리를 역순 정렬(가장 최근 데이터가 가장 위에 노출되도록) 유지
+    const [essaysRes, quizzesRes, reviewsRes, coursesRes] = await Promise.all([
       supabase.from('general_essays').select('*').eq('user_id', user.id).order('created_at', { ascending: false }),
       supabase.from('general_quizzes').select('*').eq('user_id', user.id).order('created_at', { ascending: false }),
-      supabase.from('general_reviews').select('*').eq('user_id', user.id).order('created_at', { ascending: false })
+      supabase.from('general_reviews').select('*').eq('user_id', user.id).order('created_at', { ascending: false }),
+      supabase.from('courses').select('name').eq('user_id', user.id) 
     ]);
 
     if (essaysRes.data) {
@@ -149,6 +148,9 @@ export default function GeneralStudy({ onBack, onNavigate }) {
         ...d.quiz_data
       })));
     }
+    if (coursesRes.data) {
+      setRegisteredCourses(coursesRes.data.map(c => c.name));
+    }
   };
 
   const showToast = (msg) => {
@@ -158,10 +160,7 @@ export default function GeneralStudy({ onBack, onNavigate }) {
 
   const handleGeneralUpload = async (payload) => {
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-      showToast('로그인이 필요합니다.');
-      return;
-    }
+    if (!user) return showToast('로그인이 필요합니다.');
 
     setIsAnalyzing(true);
     setGeneralTab('study'); 
@@ -183,7 +182,7 @@ ${payload.type === 'text'
 3. 문서 내에 모범 답안이 명확하지 않거나 없다면, AI가 해당 문제에 대한 가장 훌륭한 모범 답안('original_answer')을 스스로 작성해 줄 것.
 4. 그 답안을 바탕으로 서론, 본론, 결론의 뼈대(parsedStructure)를 나누고 핵심 키워드를 추출할 것. 
    **주의: 'content'에는 내용을 임의로 요약/축약하지 말고, 원본 텍스트(또는 생성한 답안 텍스트)를 분할해서 전체를 그대로 다 넣을 것.**
-5. 문장들을 분석하여 핵심 단어들에 빈칸(isBlank: true)을 뚫어 훈련용 객체(blanks)로 만들 것. (서론, 본론, 결론으로 분리된 구조 유지)
+5. 문장들을 분석하여 핵심 단어들에 빈칸(isBlank: true)을 뚫어 훈련용 객체(blanks)로 만들 것.
 
 [출력 JSON 포맷 예시 - 반드시 배열([]) 객체로 반환할 것]
 [
@@ -214,7 +213,7 @@ ${payload.type === 'text'
       const newItems = parsedAI.map((item, idx) => ({
         id: `t_${Date.now()}_${idx}`,
         user_id: user.id,
-        subject: payload.subject || '일반과목 / 과제',
+        subject: payload.subject || '일반과목 / 분류없음',
         question: item.question,
         original_answer: item.original_answer,
         parsed_structure: item.parsedStructure,
@@ -225,7 +224,6 @@ ${payload.type === 'text'
       if (error) throw error;
 
       const formattedItems = newItems.map(item => ({ ...item, parsedStructure: item.parsed_structure }));
-      // 🚀 새 데이터가 항상 맨 위(최신순)로 가도록 prev 앞에 전개
       setGeneralData(prev => [...formattedItems, ...prev]);
       
       showToast(`AI 분석 완료! ${newItems.length}개의 문제가 분류되어 저장되었습니다.`);
@@ -273,7 +271,6 @@ ${payload.type === 'text'
     }
   };
 
-  // 🚀 대량 삭제 기능 유지
   const handleBulkDeleteData = async (ids, mode) => {
     if (ids.length === 0) return;
     if (!window.confirm(`선택한 ${ids.length}개의 문제를 정말 삭제하시겠습니까?`)) return;
@@ -304,7 +301,7 @@ ${payload.type === 'text'
     };
 
     await supabase.from('general_reviews').insert(reviewRecord);
-    setGeneralReviewList(prev => [{ reviewId: reviewRecord.id, ...item }, ...prev]); // 🚀 오답노트도 추가 시 역순
+    setGeneralReviewList(prev => [{ reviewId: reviewRecord.id, ...item }, ...prev]); 
   };
 
   const handleGeneralSuccess = async (id) => {
@@ -318,7 +315,6 @@ ${payload.type === 'text'
   return (
     <div className="max-w-6xl mx-auto animate-in slide-in-from-right-4 duration-300 relative pb-32">
       
-      {/* 컴팩트 네비게이션 */}
       <div className="flex items-center justify-between bg-white p-1.5 rounded-2xl shadow-sm border border-slate-200 mb-4 gap-2">
         {onBack && (
           <button 
@@ -349,7 +345,6 @@ ${payload.type === 'text'
         </div>
       )}
 
-      {/* 탭 네비게이션 */}
       <div className="flex bg-white p-1.5 rounded-2xl shadow-sm border border-slate-200 mb-5 overflow-x-auto no-scrollbar">
          <button onClick={() => setGeneralTab('upload')} className={`flex-1 px-3 py-2.5 text-[11px] sm:text-xs font-black rounded-xl transition-all ${generalTab === 'upload' ? 'bg-emerald-50 text-emerald-700 shadow-sm' : 'text-slate-500 hover:bg-slate-50'}`}>문제/답안 등록</button>
          <button onClick={() => setGeneralTab('study')} className={`flex-1 px-3 py-2.5 text-[11px] sm:text-xs font-black rounded-xl transition-all ${generalTab === 'study' ? 'bg-emerald-50 text-emerald-700 shadow-sm' : 'text-slate-500 hover:bg-slate-50'}`}>
@@ -360,7 +355,8 @@ ${payload.type === 'text'
          </button>
       </div>
 
-      {generalTab === 'upload' && <GeneralUploadTab onUpload={handleGeneralUpload} />}
+      {/* 🚀 registeredCourses 속성 전달 */}
+      {generalTab === 'upload' && <GeneralUploadTab onUpload={handleGeneralUpload} registeredCourses={registeredCourses} />}
       
       {generalTab === 'study' && (
         isAnalyzing ? (
@@ -378,9 +374,10 @@ ${payload.type === 'text'
           <GeneralStudyTab 
             dataList={generalData} 
             quizList={quizData}
+            registeredCourses={registeredCourses} // 🚀 드롭다운 검색 필터용 데이터 전달
             onUpdateData={handleUpdateData}
             onDeleteData={handleDeleteData}
-            onBulkDelete={handleBulkDeleteData} // 대량 삭제 프롭스 전달
+            onBulkDelete={handleBulkDeleteData} 
             onFail={handleGeneralFail}
             onSuccess={handleGeneralSuccess}
           />
@@ -395,7 +392,6 @@ ${payload.type === 'text'
         />
       )}
 
-      {/* 🚀 플로팅 위로 가기 버튼 */}
       {showTopBtn && (
         <button 
           onClick={scrollToTop}
@@ -409,29 +405,41 @@ ${payload.type === 'text'
   );
 }
 
-function GeneralUploadTab({ onUpload }) {
+function GeneralUploadTab({ onUpload, registeredCourses }) {
   const [isDragging, setIsDragging] = useState(false);
   const [isParsing, setIsParsing] = useState(false);
-  const [subject, setSubject] = useState('');
+  
+  const [selectedCourse, setSelectedCourse] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState('강의/과제');
   const [question, setQuestion] = useState('');
   const [answer, setAnswer] = useState('');
-  const [fileSubject, setFileSubject] = useState('구약개론 / 중간고사');
+
+  const [fileCourse, setFileCourse] = useState('');
+  const [fileCategory, setFileCategory] = useState('강의/과제');
+
+  useEffect(() => {
+    if (registeredCourses && registeredCourses.length > 0) {
+      if (!selectedCourse) setSelectedCourse(registeredCourses[0]);
+      if (!fileCourse) setFileCourse(registeredCourses[0]);
+    }
+  }, [registeredCourses]);
 
   const handleTextSubmit = () => {
-    if(!subject || !question) return;
+    if(!selectedCourse || !question) return;
     setIsParsing(true);
     setTimeout(() => { 
       setIsParsing(false); 
-      onUpload({ type: 'text', subject, question, answer }); 
+      onUpload({ type: 'text', subject: `${selectedCourse} / ${selectedCategory}`, question, answer }); 
     }, 100);
   };
 
   const processFile = (file) => {
+    if(!fileCourse) return alert("과목을 선택해주세요.");
     setIsParsing(true);
     const reader = new FileReader();
     reader.onload = (event) => {
       setIsParsing(false);
-      onUpload({ type: 'file', subject: fileSubject || '기본 과목', fileContent: event.target.result });
+      onUpload({ type: 'file', subject: `${fileCourse} / ${fileCategory}`, fileContent: event.target.result });
     };
     reader.onerror = () => {
       setIsParsing(false);
@@ -462,17 +470,52 @@ function GeneralUploadTab({ onUpload }) {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
         <div className="bg-white p-4 rounded-3xl shadow-sm border border-slate-200 flex flex-col space-y-2">
            <div className="flex items-center gap-1.5"><PenTool className="text-emerald-500" size={13}/><h3 className="text-xs font-bold text-slate-800">텍스트 직접 입력</h3></div>
-           <div><label className="block text-[11px] font-bold text-slate-700 mb-1">과목/분류명</label><input type="text" placeholder="예) 구약개론 / 중간고사" className="w-full p-2 text-xs border border-slate-200 rounded-xl outline-none focus:border-emerald-500" value={subject} onChange={e => setSubject(e.target.value)} /></div>
-           <div><label className="block text-[11px] font-bold text-slate-700 mb-1">문제 (필수)</label><textarea rows={2} placeholder="출제될 문제를 입력하세요." className="w-full p-2 text-xs border border-slate-200 rounded-xl outline-none resize-none focus:border-emerald-500" value={question} onChange={e => setQuestion(e.target.value)} /></div>
+           
+           <div className="grid grid-cols-2 gap-2 mt-1">
+             <div>
+               <label className="block text-[11px] font-bold text-slate-700 mb-1">과목 선택</label>
+               <select className="w-full p-2 text-xs border border-slate-200 rounded-xl outline-none focus:border-emerald-500 bg-white" value={selectedCourse} onChange={e => setSelectedCourse(e.target.value)}>
+                 <option value="" disabled>과목을 선택하세요</option>
+                 {registeredCourses && registeredCourses.map(c => <option key={c} value={c}>{c}</option>)}
+               </select>
+             </div>
+             <div>
+               <label className="block text-[11px] font-bold text-slate-700 mb-1">분류</label>
+               <select className="w-full p-2 text-xs border border-slate-200 rounded-xl outline-none focus:border-emerald-500 bg-white" value={selectedCategory} onChange={e => setSelectedCategory(e.target.value)}>
+                 <option value="강의/과제">강의/과제</option>
+                 <option value="시험">시험</option>
+                 <option value="기타">기타</option>
+               </select>
+             </div>
+           </div>
+
+           <div className="mt-1"><label className="block text-[11px] font-bold text-slate-700 mb-1">문제 (필수)</label><textarea rows={2} placeholder="출제될 문제를 입력하세요." className="w-full p-2 text-xs border border-slate-200 rounded-xl outline-none resize-none focus:border-emerald-500" value={question} onChange={e => setQuestion(e.target.value)} /></div>
            <div className="flex-1 flex flex-col"><label className="block text-[11px] font-bold text-slate-700 mb-1">모범 답안 (선택)</label><textarea rows={3} placeholder="비워두시면 AI가 모범답안을 스스로 작성합니다." className="w-full p-2 text-xs border border-slate-200 rounded-xl outline-none resize-none flex-1 focus:border-emerald-500" value={answer} onChange={e => setAnswer(e.target.value)} /></div>
-           <button onClick={handleTextSubmit} disabled={isParsing || !subject || !question} className="w-full py-2 bg-slate-800 hover:bg-slate-900 text-white text-xs font-bold rounded-xl transition-transform active:scale-95 disabled:opacity-70 mt-1">
+           <button onClick={handleTextSubmit} disabled={isParsing || !selectedCourse || !question} className="w-full py-2 bg-slate-800 hover:bg-slate-900 text-white text-xs font-bold rounded-xl transition-transform active:scale-95 disabled:opacity-70 mt-1">
               {isParsing ? '준비 중...' : '입력 내용 AI 분석 시작'}
            </button>
         </div>
 
         <div className="bg-emerald-50 p-4 rounded-3xl shadow-sm border-2 border-emerald-200 flex flex-col relative">
            <div className="mb-2 flex items-center gap-1.5"><UploadCloud className="text-emerald-600" size={13}/><h3 className="text-xs font-bold text-emerald-900">파일 첨부 / 다중 문제 인식</h3></div>
-           <div className="mb-2"><label className="block text-[11px] font-bold text-emerald-800 mb-1">과목/분류명 지정</label><input type="text" placeholder="예) 구약개론 / 기말과제" className="w-full p-2 text-xs border border-emerald-200 rounded-xl outline-none bg-white font-bold text-emerald-900 focus:border-emerald-500" value={fileSubject} onChange={e => setFileSubject(e.target.value)} /></div>
+           
+           <div className="grid grid-cols-2 gap-2 mb-2">
+             <div>
+               <label className="block text-[11px] font-bold text-emerald-800 mb-1">과목 선택</label>
+               <select className="w-full p-2 text-xs border border-emerald-200 rounded-xl outline-none focus:border-emerald-500 bg-white" value={fileCourse} onChange={e => setFileCourse(e.target.value)}>
+                 <option value="" disabled>과목을 선택하세요</option>
+                 {registeredCourses && registeredCourses.map(c => <option key={c} value={c}>{c}</option>)}
+               </select>
+             </div>
+             <div>
+               <label className="block text-[11px] font-bold text-emerald-800 mb-1">분류</label>
+               <select className="w-full p-2 text-xs border border-emerald-200 rounded-xl outline-none focus:border-emerald-500 bg-white" value={fileCategory} onChange={e => setFileCategory(e.target.value)}>
+                 <option value="강의/과제">강의/과제</option>
+                 <option value="시험">시험</option>
+                 <option value="기타">기타</option>
+               </select>
+             </div>
+           </div>
            
            <input type="file" id="file-upload" className="hidden" accept=".txt,.md,.csv" onChange={handleFileInputChange} />
            
@@ -499,15 +542,18 @@ function GeneralUploadTab({ onUpload }) {
   );
 }
 
-function GeneralStudyTab({ dataList, quizList, onUpdateData, onDeleteData, onBulkDelete, onFail, onSuccess }) {
+function GeneralStudyTab({ dataList, quizList, registeredCourses, onUpdateData, onDeleteData, onBulkDelete, onFail, onSuccess }) {
   const [selectedId, setSelectedId] = useState(null);
   const [studyMode, setStudyMode] = useState('essay'); 
-
-  // 🚀 대량 삭제 State 추가
+  const [searchQuery, setSearchQuery] = useState(''); 
+  
+  // 🚀 목록 필터링용 드롭다운 State
+  const [selectedCourseFilter, setSelectedCourseFilter] = useState('all');
   const [selectedItems, setSelectedItems] = useState(new Set());
 
   useEffect(() => {
     setSelectedItems(new Set());
+    setSearchQuery(''); 
   }, [studyMode]);
 
   if(dataList.length === 0 && quizList.length === 0) return (
@@ -518,7 +564,18 @@ function GeneralStudyTab({ dataList, quizList, onUpdateData, onDeleteData, onBul
   );
 
   const currentList = studyMode === 'essay' ? dataList : quizList;
-  const groupedData = currentList.reduce((acc, item) => {
+  
+  // 🚀 검색어 및 콤보박스(과목명) 조건 동시 필터링
+  const filteredList = currentList.filter(item => {
+    const textMatch = (item.subject && item.subject.toLowerCase().includes(searchQuery.toLowerCase())) ||
+                      (item.question && item.question.toLowerCase().includes(searchQuery.toLowerCase()));
+                      
+    const courseMatch = selectedCourseFilter === 'all' || (item.subject && item.subject.startsWith(selectedCourseFilter));
+    
+    return textMatch && courseMatch;
+  });
+
+  const groupedData = filteredList.reduce((acc, item) => {
     const subj = item.subject || '미분류';
     if (!acc[subj]) acc[subj] = [];
     acc[subj].push(item);
@@ -532,27 +589,55 @@ function GeneralStudyTab({ dataList, quizList, onUpdateData, onDeleteData, onBul
   };
 
   const toggleSelectAll = () => {
-    if (selectedItems.size === currentList.length) {
+    if (selectedItems.size === filteredList.length) {
       setSelectedItems(new Set());
     } else {
-      setSelectedItems(new Set(currentList.map(s => s.id)));
+      setSelectedItems(new Set(filteredList.map(s => s.id)));
     }
   };
 
   if (!selectedId) {
     return (
       <div className="max-w-4xl mx-auto space-y-3 animate-in fade-in duration-300">
-        <div className="flex bg-slate-100 p-1 rounded-2xl border border-slate-200 w-full sm:w-fit mx-auto mb-4">
+        
+        <div className="flex bg-slate-100 p-1 rounded-2xl border border-slate-200 w-full sm:w-fit mx-auto mb-2">
            <button onClick={() => setStudyMode('essay')} className={`flex-1 sm:flex-none px-6 py-2 text-xs font-bold rounded-xl transition-all ${studyMode === 'essay' ? 'bg-white shadow text-emerald-700' : 'text-slate-500'}`}><PenTool size={13} className="inline mr-1"/> 서술형/논술형</button>
            <button onClick={() => setStudyMode('quiz')} className={`flex-1 sm:flex-none px-6 py-2 text-xs font-bold rounded-xl transition-all ${studyMode === 'quiz' ? 'bg-white shadow text-indigo-700' : 'text-slate-500'}`}><CheckSquare size={13} className="inline mr-1"/> 객관식/단답형</button>
         </div>
         
-        {/* 🚀 대량 삭제 컨트롤 바 */}
+        {/* 🚀 드롭다운 + 텍스트 검색바 통합 레이아웃 */}
+        <div className="flex flex-col sm:flex-row gap-2 mb-4 w-full">
+          <select
+            value={selectedCourseFilter}
+            onChange={(e) => setSelectedCourseFilter(e.target.value)}
+            className="bg-white border border-slate-200 focus:border-emerald-500 rounded-2xl px-4 py-3 text-sm font-bold outline-none shadow-sm sm:w-1/3 text-slate-700"
+          >
+            <option value="all">전체 과목 보기</option>
+            {registeredCourses && registeredCourses.map(c => <option key={c} value={c}>{c}</option>)}
+          </select>
+
+          <div className="relative flex-1">
+            <input 
+              type="text" 
+              placeholder="과목명 또는 문제 내용으로 검색..." 
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full bg-white border border-slate-200 focus:border-emerald-500 rounded-2xl px-10 py-3 text-sm font-bold outline-none shadow-sm transition-colors"
+            />
+            <Search size={18} className="absolute left-3.5 top-3.5 text-slate-400" />
+            {searchQuery && (
+              <button onClick={() => setSearchQuery('')} className="absolute right-3.5 top-3.5 text-slate-400 hover:text-slate-600">
+                <X size={16} />
+              </button>
+            )}
+          </div>
+        </div>
+
         <div className="flex justify-between items-center bg-white p-3 rounded-2xl shadow-sm border border-slate-200 mb-2">
           <label className="flex items-center gap-2 cursor-pointer text-xs font-bold text-slate-600 hover:text-slate-800 transition-colors pl-1">
             <input 
               type="checkbox" 
-              checked={currentList.length > 0 && selectedItems.size === currentList.length} 
+              checked={filteredList.length > 0 && selectedItems.size === filteredList.length} 
               onChange={toggleSelectAll} 
               className={`w-4 h-4 rounded border-slate-300 focus:ring-${studyMode === 'essay' ? 'emerald' : 'indigo'}-500 text-${studyMode === 'essay' ? 'emerald' : 'indigo'}-600`} 
             />
@@ -571,40 +656,42 @@ function GeneralStudyTab({ dataList, quizList, onUpdateData, onDeleteData, onBul
           )}
         </div>
 
-        {Object.entries(groupedData).map(([subjectName, items]) => (
-          <div key={subjectName} className="mb-4">
-            <h3 className={`text-xs font-extrabold px-3 py-1.5 rounded-t-xl inline-block border-t border-l border-r ${studyMode === 'essay' ? 'text-emerald-800 bg-emerald-100 border-emerald-200' : 'text-indigo-800 bg-indigo-100 border-indigo-200'}`}>
-              📁 {subjectName} <span className="font-normal">({items.length})</span>
-            </h3>
-            <div className={`p-3 rounded-b-2xl rounded-tr-2xl border space-y-2 ${studyMode === 'essay' ? 'bg-emerald-50/20 border-emerald-100' : 'bg-indigo-50/20 border-indigo-100'}`}>
-              {items.map(item => (
-                <div key={item.id} className={`bg-white p-3 rounded-xl shadow-sm transition-all group flex items-start justify-between gap-3 hover:border-emerald-400 border ${selectedItems.has(item.id) ? (studyMode === 'essay' ? 'border-emerald-300 bg-emerald-50/10' : 'border-indigo-300 bg-indigo-50/10') : 'border-slate-200'}`}>
-                  <div className="flex-1 flex items-start gap-2.5 min-w-0 py-1">
-                    {/* 체크박스 */}
-                    <input 
-                      type="checkbox" 
-                      checked={selectedItems.has(item.id)} 
-                      onChange={() => toggleItemSelect(item.id)} 
-                      className={`w-4 h-4 rounded border-slate-300 cursor-pointer mt-0.5 focus:ring-${studyMode === 'essay' ? 'emerald' : 'indigo'}-500 text-${studyMode === 'essay' ? 'emerald' : 'indigo'}-600`}
-                    />
-                    {studyMode === 'quiz' && <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md shrink-0 mt-0.5 ${item.type === 'multiple' ? 'bg-indigo-100 text-indigo-700' : 'bg-amber-100 text-amber-700'}`}>{item.type === 'multiple' ? '객관식' : '단답형'}</span>}
-                    
-                    {/* 제목 클릭 시에만 상세화면 이동하도록 변경 */}
-                    <h4 onClick={() => setSelectedId(item.id)} className="cursor-pointer text-[13px] font-bold text-slate-800 group-hover:text-emerald-700 transition-colors leading-relaxed break-keep whitespace-normal">
-                      {item.question}
-                    </h4>
+        {Object.keys(groupedData).length === 0 ? (
+          <div className="text-center py-10 text-slate-400 font-bold text-sm">검색 결과가 없습니다.</div>
+        ) : (
+          Object.entries(groupedData).map(([subjectName, items]) => (
+            <div key={subjectName} className="mb-4">
+              <h3 className={`text-xs font-extrabold px-3 py-1.5 rounded-t-xl inline-block border-t border-l border-r ${studyMode === 'essay' ? 'text-emerald-800 bg-emerald-100 border-emerald-200' : 'text-indigo-800 bg-indigo-100 border-indigo-200'}`}>
+                📁 {subjectName} <span className="font-normal">({items.length})</span>
+              </h3>
+              <div className={`p-3 rounded-b-2xl rounded-tr-2xl border space-y-2 ${studyMode === 'essay' ? 'bg-emerald-50/20 border-emerald-100' : 'bg-indigo-50/20 border-indigo-100'}`}>
+                {items.map(item => (
+                  <div key={item.id} className={`bg-white p-3 rounded-xl shadow-sm transition-all group flex items-start justify-between gap-3 hover:border-emerald-400 border ${selectedItems.has(item.id) ? (studyMode === 'essay' ? 'border-emerald-300 bg-emerald-50/10' : 'border-indigo-300 bg-indigo-50/10') : 'border-slate-200'}`}>
+                    <div className="flex-1 flex items-start gap-2.5 min-w-0 py-1">
+                      <input 
+                        type="checkbox" 
+                        checked={selectedItems.has(item.id)} 
+                        onChange={() => toggleItemSelect(item.id)} 
+                        className={`w-4 h-4 rounded border-slate-300 cursor-pointer mt-0.5 focus:ring-${studyMode === 'essay' ? 'emerald' : 'indigo'}-500 text-${studyMode === 'essay' ? 'emerald' : 'indigo'}-600`}
+                      />
+                      {studyMode === 'quiz' && <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md shrink-0 mt-0.5 ${item.type === 'multiple' ? 'bg-indigo-100 text-indigo-700' : 'bg-amber-100 text-amber-700'}`}>{item.type === 'multiple' ? '객관식' : '단답형'}</span>}
+                      
+                      <h4 onClick={() => setSelectedId(item.id)} className="cursor-pointer text-[13px] font-bold text-slate-800 group-hover:text-emerald-700 transition-colors leading-relaxed break-keep whitespace-normal">
+                        {item.question}
+                      </h4>
+                    </div>
+                    <div className="flex items-center gap-1 shrink-0 mt-0.5">
+                      <button onClick={() => setSelectedId(item.id)} className="text-[11px] font-bold text-slate-400 group-hover:text-emerald-600 flex items-center bg-slate-50 group-hover:bg-emerald-50 px-2 py-1.5 rounded-lg transition-colors">학습 <ChevronRight size={12} /></button>
+                      <button onClick={(e) => { e.stopPropagation(); onDeleteData(item.id, studyMode); }} className="p-1.5 text-gray-300 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-colors" title="문제 삭제">
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-1 shrink-0 mt-0.5">
-                    <button onClick={() => setSelectedId(item.id)} className="text-[11px] font-bold text-slate-400 group-hover:text-emerald-600 flex items-center bg-slate-50 group-hover:bg-emerald-50 px-2 py-1.5 rounded-lg transition-colors">학습 <ChevronRight size={12} /></button>
-                    <button onClick={(e) => { e.stopPropagation(); onDeleteData(item.id, studyMode); }} className="p-1.5 text-gray-300 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-colors" title="문제 삭제">
-                      <Trash2 size={14} />
-                    </button>
-                  </div>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
-          </div>
-        ))}
+          ))
+        )}
       </div>
     );
   }

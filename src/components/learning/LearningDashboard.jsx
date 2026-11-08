@@ -1,25 +1,50 @@
-import React from 'react';
-import { Brain, FileText, Folder, Play, Repeat, ChevronRight, BookOpen, Globe, Plus } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { supabase } from '../../supabaseClient';
+import { Brain, FileText, Folder, Play, Repeat, ChevronRight, BookOpen, Globe, Plus, Loader2 } from 'lucide-react';
 
 export default function DashboardHome({ onNavigate }) {
-  // 실제 DB와 연동 시 상태값으로 대체될 더미 데이터입니다.
+  const [courses, setCourses] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+  
+  // 🚀 과목 상태 필터링 State 추가 (기본값: 'in_progress')
+  const [courseStatusFilter, setCourseStatusFilter] = useState('in_progress');
+
+  // 실제 DB 연동 통계
   const stats = {
-    generalTasks: 12,
-    biblicalVocab: 45,
-    todayReviews: 3,
+    todayReviews: 0,
   };
 
-  const folders = [
-    { id: 1, title: '구약개론', count: 8, type: 'general' },
-    { id: 2, title: '신약개론', count: 4, type: 'general' },
-    { id: 3, title: '헬라어', count: 32, type: 'biblical' },
-    { id: 4, title: '히브리어', count: 13, type: 'biblical' },
-  ];
+  useEffect(() => {
+    fetchCourses();
+  }, []);
+
+  const fetchCourses = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      
+      // Coursework의 과목 데이터(courses 테이블) 로드
+      const { data, error } = await supabase
+        .from('courses')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: true });
+        
+      if (error) throw error;
+      setCourses(data || []);
+    } catch (error) {
+      console.error("과목 불러오기 실패:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // 🚀 선택된 상태값에 맞춰 과목 필터링
+  const filteredCourses = courses.filter(c => (c.status || 'in_progress') === courseStatusFilter);
 
   return (
     <div className="max-w-5xl mx-auto animate-in fade-in duration-300 space-y-8 pb-10">
       
-      {/* 1. 상단: 환영 인사 및 투데이 리마인더 */}
       <div className="bg-slate-900 rounded-3xl p-6 md:p-8 text-white shadow-lg flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
           <h1 className="text-xl md:text-2xl font-bold mb-1">학습코칭 대시보드</h1>
@@ -36,9 +61,7 @@ export default function DashboardHome({ onNavigate }) {
         )}
       </div>
 
-      {/* 2. 중단: 핵심 워크플로우 (빠른 시작) */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {/* 일반 과목 학습 버튼 */}
         <div 
           onClick={() => onNavigate('general')}
           className="bg-emerald-50 hover:bg-emerald-100 border-2 border-emerald-200 p-6 rounded-3xl cursor-pointer transition-all group flex flex-col justify-between h-40"
@@ -53,7 +76,6 @@ export default function DashboardHome({ onNavigate }) {
           </div>
         </div>
 
-        {/* 성서 원어 훈련 버튼 */}
         <div 
           onClick={() => onNavigate('biblical')}
           className="bg-indigo-50 hover:bg-indigo-100 border-2 border-indigo-200 p-6 rounded-3xl cursor-pointer transition-all group flex flex-col justify-between h-40"
@@ -69,39 +91,60 @@ export default function DashboardHome({ onNavigate }) {
         </div>
       </div>
 
-      {/* 3. 하단: 과목별 폴더 라이브러리 */}
       <div>
-        <div className="flex items-center gap-2 mb-4 px-1">
-          <Folder className="text-slate-400" size={18} />
-          <h3 className="text-sm font-bold text-slate-800">과목별 보관함</h3>
-        </div>
-        
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          {folders.map(folder => (
-            <div 
-              key={folder.id} 
-              onClick={() => onNavigate(folder.type)}
-              className="bg-white border border-slate-200 p-4 rounded-2xl shadow-sm hover:border-slate-400 hover:shadow-md transition-all cursor-pointer flex flex-col items-start gap-3"
-            >
-              <div className={`p-2 rounded-lg ${folder.type === 'general' ? 'bg-emerald-50 text-emerald-600' : 'bg-indigo-50 text-indigo-600'}`}>
-                {folder.type === 'general' ? <BookOpen size={16}/> : <Brain size={16}/>}
-              </div>
-              <div className="w-full">
-                <h4 className="font-bold text-slate-800 text-sm mb-0.5 truncate">{folder.title}</h4>
-                <div className="text-xs text-slate-400 font-medium">{folder.count}개의 항목</div>
-              </div>
-            </div>
-          ))}
-
-          {/* 새 과목 추가 버튼 */}
-          <div 
-            onClick={() => alert("새 과목 추가 기능은 준비 중입니다.")}
-            className="border-2 border-dashed border-slate-200 p-4 rounded-2xl flex flex-col items-center justify-center text-slate-400 hover:text-slate-600 hover:bg-slate-50 transition-colors cursor-pointer min-h-[100px]"
-          >
-            <Plus size={20} className="mb-1" />
-            <span className="text-xs font-bold">새 과목 추가</span>
+        {/* 🚀 상단 과목 필터링 토글 메뉴 */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4 px-1">
+          <div className="flex items-center gap-2">
+            <Folder className="text-slate-400" size={18} />
+            <h3 className="text-sm font-bold text-slate-800">과목별 보관함 <span className="text-slate-400 font-medium ml-1 text-xs">(과제 탭 자동 연동)</span></h3>
+          </div>
+          
+          <div className="flex bg-slate-100 p-1 rounded-xl border border-slate-200 w-fit">
+            {['in_progress', 'completed', 'incomplete'].map(s => (
+              <button
+                key={s}
+                onClick={() => setCourseStatusFilter(s)}
+                className={`px-4 py-1.5 text-[11px] font-bold rounded-lg transition-all ${courseStatusFilter === s ? 'bg-white shadow text-indigo-700' : 'text-slate-500 hover:bg-slate-200/50'}`}
+              >
+                {s === 'in_progress' ? '수강중' : s === 'completed' ? '이수' : '미이수'}
+              </button>
+            ))}
           </div>
         </div>
+        
+        {isLoading ? (
+          <div className="flex justify-center items-center py-10"><Loader2 className="animate-spin text-slate-300" size={32}/></div>
+        ) : (
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            {filteredCourses.map(course => {
+              const isBiblical = course.name.includes('원어') || course.name.includes('헬라어') || course.name.includes('히브리어');
+              return (
+                <div 
+                  key={course.id} 
+                  onClick={() => onNavigate(isBiblical ? 'biblical' : 'general')}
+                  className="bg-white border border-slate-200 p-4 rounded-2xl shadow-sm hover:border-indigo-400 hover:shadow-md transition-all cursor-pointer flex flex-col items-start gap-3"
+                >
+                  <div className={`p-2 rounded-lg ${isBiblical ? 'bg-indigo-50 text-indigo-600' : 'bg-emerald-50 text-emerald-600'}`}>
+                    {isBiblical ? <Globe size={16}/> : <BookOpen size={16}/>}
+                  </div>
+                  <div className="w-full">
+                    <h4 className="font-bold text-slate-800 text-sm mb-0.5 truncate">{course.name}</h4>
+                    <div className="text-[10px] text-slate-400 font-bold">{course.professor ? `${course.professor} 교수` : '일반과목'}</div>
+                  </div>
+                </div>
+              );
+            })}
+
+            {filteredCourses.length === 0 && (
+              <div 
+                className="col-span-full border-2 border-dashed border-slate-200 p-6 rounded-2xl flex flex-col items-center justify-center text-slate-400 hover:text-slate-600 hover:bg-slate-50 transition-colors min-h-[120px]"
+              >
+                <BookOpen size={24} className="mb-2 text-slate-300" />
+                <span className="text-xs font-bold text-center">해당 상태로 등록된 과목이 없습니다.</span>
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );

@@ -63,7 +63,6 @@ const grammarLabels = {
   person: '인칭', number: '수', gender: '성', case: '격' 
 };
 
-// 🚀 기등록 단어를 위한 지능형 형태소 자동 분해 및 발음 보조 함수
 const getFallbackPronunciation = (word) => {
   if (!word) return '';
   if (word.includes('ἐλύσαμεν')) return '엘뤼사멘';
@@ -79,18 +78,10 @@ const getFallbackMorphology = (word) => {
   if (!word) return null;
   const match = word.match(/^([ἐεἠἡἀἁἱὑὓὧᾱᾲᾴᾶᾼᾹ]|ε[ἰἱ])(.+?)(σαμεν|σαν|θη|θην|θης|το|στο|ατε|ετωσαν|ε(ν)?|ον|α|ε|ης|ετο|οντο)$/i);
   if (match) {
-    return {
-      prefix: match[1],
-      stem: match[2],
-      suffix: match[3]
-    };
+    return { prefix: match[1], stem: match[2], suffix: match[3] };
   }
   if (word.startsWith('ἐ') || word.startsWith('ἠ') || word.startsWith('ε')) {
-    return {
-      prefix: word[0],
-      stem: word.slice(1, -2),
-      suffix: word.slice(-2)
-    };
+    return { prefix: word[0], stem: word.slice(1, -2), suffix: word.slice(-2) };
   }
   return null;
 };
@@ -232,13 +223,7 @@ ${payload.content || '첨부파일/이미지 참조'}
       let sentencesArray = [];
       if (Array.isArray(parsedAI)) {
         if (parsedAI.length > 0 && (parsedAI[0].word || parsedAI[0].lemma) && !parsedAI[0].words) {
-           sentencesArray = [{
-             language: 'greek',
-             original: '문법 연습문제 단어 목록',
-             translation: '문법 연습문제 단어 모음',
-             grammar_tags: [],
-             words: parsedAI
-           }];
+           sentencesArray = [{ language: 'greek', original: '문법 연습문제 단어 목록', translation: '문법 연습문제 단어 모음', grammar_tags: [], words: parsedAI }];
         }
         else if (parsedAI.length === 1 && Array.isArray(parsedAI[0].sentences)) sentencesArray = parsedAI[0].sentences;
         else if (parsedAI.length === 1 && Array.isArray(parsedAI[0].data)) sentencesArray = parsedAI[0].data;
@@ -272,6 +257,8 @@ ${payload.content || '첨부파일/이미지 참조'}
           original: item.original || '단어 연습 목록',
           translation: finalTranslation,
           grammar_tags: item.grammar_tags || [],
+          category: payload.category || '', 
+          source: payload.source || '',     
           words: Array.isArray(item.words) ? item.words.map((w, wIdx) => ({
             ...w,
             id: w.id || `w_${Date.now()}_${idx}_${wIdx}`,
@@ -295,7 +282,13 @@ ${payload.content || '첨부파일/이미지 참조'}
 
       let { error } = await supabase.from('biblical_sentences').insert(newSentences);
       if (error && (error.code === '42703' || (error.message && error.message.includes('column')))) {
-         const safeSentences = newSentences.map(({ grammar_tags, ...rest }) => rest);
+         // 만약 DB에 category, source 필드가 아직 없다면 태그로 밀어넣어 보존
+         const safeSentences = newSentences.map(({ grammar_tags, category, source, ...rest }) => {
+            const tags = grammar_tags ? [...grammar_tags] : [];
+            if (category) tags.unshift(`분류: ${category}`);
+            if (source) tags.unshift(`출처: ${source}`);
+            return { ...rest, grammar_tags: tags };
+         });
          const retry = await supabase.from('biblical_sentences').insert(safeSentences);
          if (retry.error) throw retry.error;
       } else if (error) {
@@ -588,11 +581,14 @@ ${payload.content || '첨부파일/이미지 참조'}
     </div>
   );
 }
-
 function BiblicalUploadTab({ onUpload }) {
   const [isDragging, setIsDragging] = useState(false);
   const [isParsing, setIsParsing] = useState(false);
   const [textContent, setTextContent] = useState('');
+  
+  // 🚀 새롭게 추가된 문법 분류 및 출처 입력 상태
+  const [category, setCategory] = useState('');
+  const [source, setSource] = useState('');
 
   useEffect(() => {
     const handleGlobalPaste = (e) => {
@@ -611,12 +607,13 @@ function BiblicalUploadTab({ onUpload }) {
     };
     window.addEventListener('paste', handleGlobalPaste);
     return () => window.removeEventListener('paste', handleGlobalPaste);
-  }, []);
+  }, [category, source]); // 상태 반영을 위해 dependency 추가
 
   const handleTextSubmit = () => {
     if(!textContent) return;
     setIsParsing(true);
-    setTimeout(() => { setIsParsing(false); onUpload({ type: 'text', content: textContent, isExamMode: false }); }, 100);
+    // 🚀 onUpload 시 category와 source를 payload에 함께 넘깁니다.
+    setTimeout(() => { setIsParsing(false); onUpload({ type: 'text', content: textContent, isExamMode: false, category, source }); }, 100);
   };
 
   const processFile = (file) => {
@@ -632,7 +629,9 @@ function BiblicalUploadTab({ onUpload }) {
         fileContent: dataUrl,
         base64: base64Data,   
         mimeType: file.type,
-        isExamMode: true 
+        isExamMode: true,
+        category, // 🚀
+        source    // 🚀
       }); 
     };
     reader.onerror = () => { setIsParsing(false); alert('파일 읽기 오류'); };
@@ -662,6 +661,18 @@ function BiblicalUploadTab({ onUpload }) {
           <h2 className="text-sm font-bold mb-1 flex items-center gap-1.5"><Brain size={15} className="text-indigo-400" /> 성서 원어 AI 파서</h2>
           <p className="text-slate-300 text-[11px] leading-relaxed max-w-lg">텍스트, 캡처된 헬라어 문장, 문법 연습 표(이미지/PDF)를 업로드하거나 <span className="text-indigo-300 font-bold">화면 위에서 Ctrl+V(붙여넣기)</span> 하세요.</p>
         </div>
+      </div>
+
+      {/* 🚀 공통 문법 분류 및 연습문제 출처 입력란 추가 */}
+      <div className="bg-white p-4 rounded-3xl shadow-sm border border-slate-200 grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
+         <div>
+           <label className="block text-[11px] font-bold text-slate-700 mb-1">관련 문법 분류 (선택)</label>
+           <input type="text" placeholder="예) 제1단순과거, 명사 변화 등" className="w-full p-2.5 text-xs font-bold border border-slate-200 rounded-xl outline-none focus:border-indigo-500" value={category} onChange={e => setCategory(e.target.value)} />
+         </div>
+         <div>
+           <label className="block text-[11px] font-bold text-slate-700 mb-1">교재 / 문제 번호 (선택)</label>
+           <input type="text" placeholder="예) 문법연습 17, 145페이지 등" className="w-full p-2.5 text-xs font-bold border border-slate-200 rounded-xl outline-none focus:border-indigo-500" value={source} onChange={e => setSource(e.target.value)} />
+         </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
@@ -758,12 +769,23 @@ function SentencesTab({ sentences, savedWordKeys, showPhonetics, onAddVocab, glo
         const isEmptyWords = !sentence.words || sentence.words.length === 0;
 
         const activeTagsInSentence = Array.from(new Set(sentence.words?.filter(w => savedWordKeys.has(w.word) && w.tense).map(w => w.tense)));
-        const displayTags = Array.from(new Set([...(sentence.grammar_tags || []), ...activeTagsInSentence]));
+        // 🚀 입력된 태그 중에서 '분류:' 와 '출처:' 정보 분리
+        const customCategory = sentence.category || sentence.grammar_tags?.find(t => t.startsWith('분류:'))?.replace('분류:', '').trim();
+        const customSource = sentence.source || sentence.grammar_tags?.find(t => t.startsWith('출처:'))?.replace('출처:', '').trim();
+        const displayTags = Array.from(new Set([...(sentence.grammar_tags || []).filter(t => !t.startsWith('분류:') && !t.startsWith('출처:')), ...activeTagsInSentence]));
 
         return (
           <div key={sentence.id} className={`bg-white p-4 sm:p-5 rounded-2xl shadow-sm border relative group transition-colors ${selectedSentenceIds.has(sentence.id) ? 'border-indigo-300 bg-indigo-50/10' : 'border-slate-200'}`}>
             {sentence.is_exam_mode && <div className="absolute top-0 right-0 bg-amber-500 text-white text-[10px] font-bold px-3 py-0.5 rounded-tr-2xl rounded-bl-xl shadow-sm z-10">시험 핵심</div>}
             
+            {/* 🚀 추가된 부분: 문법 카테고리 & 연습문제 출처 뱃지 표시 영역 */}
+            {(customCategory || customSource) && (
+              <div className="flex gap-2 mb-3">
+                {customCategory && <span className="bg-blue-50 text-blue-700 text-[10px] font-extrabold px-2.5 py-1 rounded-lg border border-blue-200 shadow-sm">{customCategory}</span>}
+                {customSource && <span className="bg-orange-50 text-orange-700 text-[10px] font-extrabold px-2.5 py-1 rounded-lg border border-orange-200 shadow-sm">{customSource}</span>}
+              </div>
+            )}
+
             <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-4 gap-2 border-b border-slate-100 pb-2">
               <div className="flex items-center gap-2 flex-wrap">
                 <input type="checkbox" checked={selectedSentenceIds.has(sentence.id)} onChange={() => toggleSentenceSelect(sentence.id)} className="w-4 h-4 rounded text-indigo-600 cursor-pointer" />
@@ -830,11 +852,10 @@ function SentencesTab({ sentences, savedWordKeys, showPhonetics, onAddVocab, glo
 
             {!editingSentenceId && sentence.translation && (
               <div className="text-[13px] font-medium text-slate-600 bg-slate-50 px-3.5 py-2 rounded-xl border border-slate-100 w-fit leading-relaxed">
-                {sentence.translation.includes('연습문제') ? <span className="text-slate-400 font-bold">[{sentence.translation}]</span> : `"${sentence.translation}"`}
+                {sentence.translation.includes('연습문제') ? <span className="text-slate-400 font-bold">[{sentence.translation.split('\n')[0]}]</span> : `"${sentence.translation.split('\n').pop()}"`}
               </div>
             )}
 
-            {/* 🚀 모바일 최적화된 단어 분석 박스 (음가 위치 조정 및 품사명 가로 고정) */}
             {activeWord && !isEmptyWords && !editingSentenceId && (() => {
               const isSavedInVocab = savedWordKeys.has(activeWord.word);
               const activePronunciation = activeWord.pronunciation || getFallbackPronunciation(activeWord.word);
@@ -843,10 +864,7 @@ function SentencesTab({ sentences, savedWordKeys, showPhonetics, onAddVocab, glo
                 <div className="mt-4 pt-4 border-t border-slate-100 animate-in fade-in slide-in-from-top-2 duration-200">
                   <div className="bg-slate-50 border border-slate-200 rounded-2xl p-3 sm:p-5 shadow-inner overflow-hidden">
                     
-                    {/* 상단 단어 및 버튼: 단어/음가 묶음과 우측 끝 담기 버튼 배치 */}
                     <div className="flex flex-row items-start sm:items-center justify-between mb-3 sm:mb-4 border-b border-slate-200/60 pb-3 gap-3">
-                      
-                      {/* 🚀 음가가 모바일에서 깨지지 않고 단어 바로 아래로 자연스럽게 정렬되도록 flex-col 활용 */}
                       <div className="flex flex-col sm:flex-row sm:items-baseline gap-1.5 sm:gap-2.5 flex-1 min-w-0">
                         <span className="text-2xl font-serif text-indigo-900 font-bold break-all leading-none" dir={isRTL ? 'rtl' : 'ltr'}>{activeWord.word}</span>
                         {showPhonetics && activePronunciation && (
@@ -855,8 +873,6 @@ function SentencesTab({ sentences, savedWordKeys, showPhonetics, onAddVocab, glo
                           </span>
                         )}
                       </div>
-                      
-                      {/* 담기 버튼 오른쪽 끝 고정 (shrink-0 로 찌그러짐 방지) */}
                       <button 
                         onClick={(e) => { 
                           e.stopPropagation(); 
@@ -872,11 +888,9 @@ function SentencesTab({ sentences, savedWordKeys, showPhonetics, onAddVocab, glo
                       </button>
                     </div>
                     
-                    {/* 🚀 품사명 및 정보: 100% 가변 Flex 박스로 품사명 및 뱃지 가로 공간 확실히 확보 */}
                     <div className="flex flex-col gap-2 text-xs sm:text-[13px] mb-4 bg-white p-3 sm:p-4 rounded-xl border border-slate-100 shadow-sm w-full">
                       <div className="flex flex-row items-center gap-2 sm:gap-3 w-full">
                         <span className="text-slate-400 font-bold shrink-0 w-10 sm:w-14">원형</span>
-                        {/* 🚀 원형과 품사 뱃지를 가로로 나란히 배치 */}
                         <div className="flex flex-row items-center gap-2 flex-1 min-w-0 overflow-hidden">
                           <span className="font-serif font-bold text-slate-800 text-[14px] sm:text-base truncate">{activeWord.lemma}</span>
                           <span className="font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded text-[11px] border border-indigo-100 shadow-sm shrink-0 whitespace-nowrap">
@@ -890,7 +904,6 @@ function SentencesTab({ sentences, savedWordKeys, showPhonetics, onAddVocab, glo
                       </div>
                     </div>
                     
-                    {/* 문법 속성 뱃지 영역 (타이틀 삭제) */}
                     <div className="flex flex-wrap gap-1.5 pt-1 border-t border-slate-200/60 mt-3 sm:pt-3">
                       <AlignLeft size={14} className="text-slate-400 mt-1 mr-1 hidden sm:inline-block shrink-0" />
                       {Object.keys(grammarLabels).map(key => {
@@ -926,7 +939,6 @@ function SentencesTab({ sentences, savedWordKeys, showPhonetics, onAddVocab, glo
     </div>
   );
 }
-
 function VocabTab({ vocabulary, showPhonetics, onStartDrill, onRemoveVocab }) {
   const [drillMode, setDrillMode] = useState('find_word'); 
   
@@ -1005,9 +1017,6 @@ function LanguageBadge({ language }) {
   return <span className={`text-[10px] font-bold px-2 py-0.5 rounded uppercase w-fit ${isHebrew ? 'bg-amber-100 text-amber-800' : 'bg-blue-100 text-blue-800'}`}>{isHebrew ? '히브리어' : '헬라어'}</span>;
 }
 
-// ==========================================
-// 🚀 WordCard 컴포넌트 (품사 뱃지 우측 이동 및 모바일 최적화)
-// ==========================================
 function WordCard({ item, showPhonetics, onRemove }) {
   const isRTL = item.language === 'hebrew';
   const pronunciationText = item.pronunciation || getFallbackPronunciation(item.word);
@@ -1038,7 +1047,6 @@ function WordCard({ item, showPhonetics, onRemove }) {
         <div className="text-2xl font-serif text-indigo-900 mb-1 mt-1.5 text-center" dir={isRTL ? 'rtl' : 'ltr'}>{item.word}</div>
       )}
       
-      {/* 음가 노출 중앙 정렬 */}
       {showPhonetics && pronunciationText && (
         <div className="text-[11px] sm:text-xs bg-indigo-50 text-indigo-600 font-bold px-2.5 py-0.5 sm:py-1 rounded-lg text-center w-max mx-auto mb-2.5 shadow-sm">
           [{pronunciationText}]
@@ -1046,7 +1054,6 @@ function WordCard({ item, showPhonetics, onRemove }) {
       )}
       
       <div className="space-y-1.5 text-xs sm:text-[13px] mt-auto border-t border-slate-100 pt-2 mb-1" dir="ltr">
-        {/* 🚀 원형 옆에 품사 뱃지 고정 (타이틀 없음) */}
         <div className="flex flex-row items-center justify-between bg-slate-50 p-2 rounded-lg w-full">
           <span className="text-slate-500 font-bold shrink-0 w-10 sm:w-12">원형</span>
           <div className="flex flex-row items-center gap-1.5 flex-1 justify-end min-w-0 overflow-hidden">
@@ -1062,7 +1069,6 @@ function WordCard({ item, showPhonetics, onRemove }) {
           <span className="font-bold text-emerald-700 text-right break-words flex-1">{item.meaning}</span>
         </div>
         
-        {/* 🚀 타이틀 없는 문법 속성 뱃지 영역 */}
         <div className="flex flex-wrap gap-1.5 pt-1.5 px-1.5 border-t border-slate-50 mt-1">
           {Object.keys(grammarLabels).map(key => {
             if (!item[key]) return null;
@@ -1076,6 +1082,15 @@ function WordCard({ item, showPhonetics, onRemove }) {
           })}
         </div>
       </div>
+
+      {item.sentenceContext && (
+        <div className="mt-auto pt-1.5 border-t border-slate-100 flex flex-col">
+          <div className="text-[11px] font-serif text-slate-500 bg-slate-50 p-1.5 rounded-t-xl truncate" dir={isRTL ? 'rtl' : 'ltr'}>{item.sentenceContext}</div>
+          {item.sentenceTranslation && (
+            <div className="text-[11px] font-medium text-slate-600 bg-slate-100 p-1.5 rounded-b-xl border-t border-slate-200/50 truncate" dir="ltr">"{item.sentenceTranslation.split('\n').pop()}"</div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -1186,7 +1201,6 @@ function DrillTab({ queue, mode, showPhonetics, onComplete, onFail }) {
               <div className="bg-slate-50 p-4 sm:p-6 rounded-2xl border border-slate-200 shadow-inner mb-4 text-left">
                  <h4 className="font-bold text-slate-700 mb-4 pb-2 border-b border-slate-200 text-sm">다음 분석에 해당하는 헬라어 단어를 고르시오.</h4>
                  <div className="flex flex-col gap-2.5">
-                   {/* 🚀 훈련 문제 화면에서도 품사명 뱃지를 원형 옆에 고정 (타이틀 제거) */}
                    <div className="bg-white p-3 rounded-lg border border-slate-100 shadow-sm flex flex-row items-center w-full">
                      <span className="text-slate-400 font-bold shrink-0 w-10 sm:w-12 text-sm">원형</span>
                      <div className="flex flex-row items-center gap-1.5 flex-1 min-w-0 overflow-hidden">
@@ -1228,7 +1242,6 @@ function DrillTab({ queue, mode, showPhonetics, onComplete, onFail }) {
                 ) : (
                   <div className="text-4xl sm:text-5xl font-serif text-slate-900 text-center break-all px-2" dir={isRTL ? 'rtl' : 'ltr'}>{currentItem.word}</div>
                 )}
-                {/* 🚀 음가 모바일 하단 깨짐 방지 위치 고정 */}
                 {showPhonetics && pronunciationText && (
                   <div className="text-xs sm:text-[13px] font-bold text-indigo-600 bg-indigo-50 px-3 py-1 rounded-lg w-max shadow-sm border border-indigo-100">
                     [{pronunciationText}]
@@ -1240,7 +1253,7 @@ function DrillTab({ queue, mode, showPhonetics, onComplete, onFail }) {
             {currentItem.sentenceContext && currentItem.sentenceContext !== '단어 연습 목록' && (
               <>
                 <div className="mt-4 text-xs font-serif text-slate-500 bg-slate-50 p-2.5 rounded-t-xl leading-relaxed" dir={isRTL ? 'rtl' : 'ltr'}>{currentItem.sentenceContext}</div>
-                {currentItem.sentenceTranslation && <div className="text-xs font-medium text-slate-600 bg-slate-100 p-2.5 rounded-b-xl border-t border-slate-200" dir="ltr">"{currentItem.sentenceTranslation}"</div>}
+                {currentItem.sentenceTranslation && <div className="text-xs font-medium text-slate-600 bg-slate-100 p-2.5 rounded-b-xl border-t border-slate-200" dir="ltr">"{currentItem.sentenceTranslation.split('\n').pop()}"</div>}
               </>
             )}
           </div>
