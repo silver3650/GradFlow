@@ -5,12 +5,12 @@ import { getChoseong } from '../../utils/learningData';
 import { 
   UploadCloud, List, Repeat, PenTool, Brain, CheckSquare, 
   ArrowLeft, Lightbulb, ChevronRight, CheckCircle, XCircle,
-  FileText, RefreshCw, Trash2, ChevronUp, Search, X // 🚀 에러 원인: X 아이콘 import 누락 복구됨
+  FileText, RefreshCw, Trash2, ChevronUp, Search, X 
 } from 'lucide-react';
 
 const parseAIResponse = (text) => {
   try {
-    const cleaned = text.replace(/```json/g, '').replace(/```/g, '').trim();
+    const cleaned = text.replace(/```(?:json)?/gi, '').replace(/```/g, '').trim();
     return JSON.parse(cleaned);
   } catch (error) {
     console.error("AI 응답 JSON 파싱 실패:", text);
@@ -114,11 +114,8 @@ export default function GeneralStudy({ onBack, onNavigate }) {
 
   const scrollToTop = () => {
     const mainContainer = document.querySelector('main');
-    if(mainContainer) {
-      mainContainer.scrollTo({ top: 0, behavior: 'smooth' });
-    } else {
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-    }
+    if(mainContainer) mainContainer.scrollTo({ top: 0, behavior: 'smooth' });
+    else window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const fetchMyData = async () => {
@@ -160,48 +157,80 @@ export default function GeneralStudy({ onBack, onNavigate }) {
 
   const handleGeneralUpload = async (payload) => {
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return showToast('로그인이 필요합니다.');
+    if (!user) {
+      showToast('로그인이 필요합니다.');
+      return;
+    }
 
     setIsAnalyzing(true);
     setGeneralTab('study'); 
 
+    const isQuizMode = payload.questionType === 'quiz';
+
     try {
-      const prompt = `
-다음 입력된 자료를 분석하여 서술형 학습 데이터를 생성해줘.
-입력 자료 안에 여러 개의 문제가 포함되어 있다면, 반드시 문제별로 분리해서 배열(Array) 형태로 반환해야 해.
+      // 🚀 질문 유형(questionType)에 따른 프롬프트 완벽 분기
+      const prompt = isQuizMode 
+        ? `
+다음 입력된 자료를 분석하여 객관식 및 단답형 퀴즈 데이터를 생성해줘.
+[최고 수준 경고 - JSON 문법 절대 엄수]
 응답은 반드시 마크다운(\`\`\`)을 제외한 순수 JSON 배열([ {...}, {...} ]) 포맷만 반환해.
 
 [입력 자료]
-${payload.type === 'text' 
-  ? `문제: ${payload.question}\n모범답안: ${payload.answer}` 
-  : `문서 내용: ${payload.fileContent}`}
+${payload.type === 'text' ? `주제: ${payload.question}\n내용: ${payload.answer}` : `문서 내용: ${payload.fileContent}`}
 
 [요구사항]
-1. 자료 안에 여러 문제가 있다면 완벽히 분리하여 각각 객체로 만들 것.
-2. 'question' 항목에는 번호(예: 1., 2.)를 포함하여 명확한 문제 문장을 작성할 것.
-3. 문서 내에 모범 답안이 명확하지 않거나 없다면, AI가 해당 문제에 대한 가장 훌륭한 모범 답안('original_answer')을 스스로 작성해 줄 것.
-4. 그 답안을 바탕으로 서론, 본론, 결론의 뼈대(parsedStructure)를 나누고 핵심 키워드를 추출할 것. 
-   **주의: 'content'에는 내용을 임의로 요약/축약하지 말고, 원본 텍스트(또는 생성한 답안 텍스트)를 분할해서 전체를 그대로 다 넣을 것.**
-5. 문장들을 분석하여 핵심 단어들에 빈칸(isBlank: true)을 뚫어 훈련용 객체(blanks)로 만들 것.
+1. 자료의 핵심 내용을 바탕으로 '객관식(multiple)' 3문제와 '단답형(short)' 2문제를 골고루 생성할 것. (총 3~5문제)
+2. 'multiple' 타입은 "options" 배열(4개)과 정확히 일치하는 "answer" 문자열을 가져야 함.
+3. 'short' 타입은 "answer"에 1~3단어 이내의 핵심 명사를 기재할 것 ("options"는 생략 또는 빈 배열).
+4. 각 문제에 대한 상세한 해설을 "explanation"에 기재할 것.
+
+[출력 JSON 포맷 예시 - 반드시 배열([]) 객체로 반환할 것]
+[
+  {
+    "type": "multiple",
+    "question": "다음 중 ~에 대한 설명으로 올바른 것은?",
+    "options": ["보기1", "보기2", "보기3", "보기4"],
+    "answer": "보기2",
+    "explanation": "이러이러해서 보기2가 정답입니다."
+  },
+  {
+    "type": "short",
+    "question": "~을 의미하는 핵심 용어는 무엇인가?",
+    "answer": "정답단어",
+    "explanation": "이 용어는 ~을 뜻합니다."
+  }
+]
+`
+        : `
+다음 입력된 자료를 분석하여 서술형 학습 데이터를 생성해줘.
+[최고 수준 경고 - JSON 문법 절대 엄수]
+응답은 반드시 마크다운(\`\`\`)을 제외한 순수 JSON 배열([ {...}, {...} ]) 포맷만 반환해.
+
+[입력 자료]
+${payload.type === 'text' ? `문제: ${payload.question}\n모범답안: ${payload.answer}` : `문서 내용: ${payload.fileContent}`}
+
+[요구사항]
+1. 여러 문제가 있다면 분리하여 각각 객체로 만들고, 문제 문장을 명확히 작성할 것.
+2. 모범 답안('original_answer')을 바탕으로 서론, 본론, 결론의 뼈대(parsedStructure)를 나누고 핵심 키워드 추출.
+3. 내용을 요약하지 말고 원본(또는 생성된 답안) 텍스트를 그대로 넣어 빈칸 뚫기(blanks) 객체 생성.
 
 [출력 JSON 포맷 예시 - 반드시 배열([]) 객체로 반환할 것]
 [
   {
     "question": "1. 첫 번째 문제 문장",
-    "original_answer": "첫 번째 문제에 대한 모범 답안 전체 텍스트",
+    "original_answer": "모범 답안 전체 텍스트",
     "parsedStructure": {
-      "intro": { "title": "서론", "content": "서론 텍스트 전체 그대로", "keywords": ["키워드1", "키워드2"] },
-      "body": { "title": "본론", "content": "본론 텍스트 전체 그대로", "keywords": ["키워드3"] },
-      "conclusion": { "title": "결론", "content": "결론 텍스트 전체 그대로", "keywords": ["키워드4"] }
+      "intro": { "title": "서론", "content": "내용", "keywords": ["키워드1"] },
+      "body": { "title": "본론", "content": "내용", "keywords": ["키워드2"] },
+      "conclusion": { "title": "결론", "content": "내용", "keywords": ["키워드3"] }
     },
     "blanks": {
-      "intro": [ { "isBlank": false, "text": "일반 텍스트 " }, { "isBlank": true, "text": "키워드1" } ],
-      "body": [ { "isBlank": false, "text": "일반 텍스트 " }, { "isBlank": true, "text": "키워드3" } ],
-      "conclusion": [ { "isBlank": false, "text": "일반 텍스트 " }, { "isBlank": true, "text": "키워드4" } ]
+      "intro": [ { "isBlank": false, "text": "텍스트 " }, { "isBlank": true, "text": "키워드1" } ]
     }
   }
 ]
 `;
+
       const responseText = await callGeminiAPI(prompt); 
       let parsedAI = parseAIResponse(responseText);
 
@@ -210,23 +239,44 @@ ${payload.type === 'text'
         else parsedAI = [parsedAI];
       }
 
-      const newItems = parsedAI.map((item, idx) => ({
-        id: `t_${Date.now()}_${idx}`,
-        user_id: user.id,
-        subject: payload.subject || '일반과목 / 분류없음',
-        question: item.question,
-        original_answer: item.original_answer,
-        parsed_structure: item.parsedStructure,
-        blanks: item.blanks
-      }));
+      const subjectName = payload.subject || '일반과목 / 분류없음';
 
-      const { error } = await supabase.from('general_essays').insert(newItems);
-      if (error) throw error;
+      // 🚀 모드에 따라 DB 테이블 분기 처리
+      if (isQuizMode) {
+        const newQuizzes = parsedAI.map((item, idx) => ({
+          id: `q_${Date.now()}_${idx}`,
+          user_id: user.id,
+          subject: subjectName,
+          type: item.type || 'multiple',
+          question: item.question,
+          options: item.options || [],
+          answer: item.answer,
+          explanation: item.explanation || '해설이 제공되지 않았습니다.'
+        }));
 
-      const formattedItems = newItems.map(item => ({ ...item, parsedStructure: item.parsed_structure }));
-      setGeneralData(prev => [...formattedItems, ...prev]);
-      
-      showToast(`AI 분석 완료! ${newItems.length}개의 문제가 분류되어 저장되었습니다.`);
+        const { error } = await supabase.from('general_quizzes').insert(newQuizzes);
+        if (error) throw error;
+        
+        setQuizData(prev => [...newQuizzes, ...prev]);
+        showToast(`AI 퀴즈 생성 완료! ${newQuizzes.length}개의 객관식/단답형 문제가 추가되었습니다.`);
+      } else {
+        const newItems = parsedAI.map((item, idx) => ({
+          id: `t_${Date.now()}_${idx}`,
+          user_id: user.id,
+          subject: subjectName,
+          question: item.question,
+          original_answer: item.original_answer,
+          parsed_structure: item.parsedStructure,
+          blanks: item.blanks
+        }));
+
+        const { error } = await supabase.from('general_essays').insert(newItems);
+        if (error) throw error;
+
+        const formattedItems = newItems.map(item => ({ ...item, parsedStructure: item.parsed_structure }));
+        setGeneralData(prev => [...formattedItems, ...prev]);
+        showToast(`AI 서술형 분석 완료! ${newItems.length}개의 논술/구조화 문제가 추가되었습니다.`);
+      }
     } catch (error) {
       console.error("AI 연동/저장 에러:", error);
       showToast(`분석 중 오류가 발생했습니다. AI 서버 상태를 확인해 주세요.`);
@@ -317,11 +367,7 @@ ${payload.type === 'text'
       
       <div className="flex items-center justify-between bg-white p-1.5 rounded-2xl shadow-sm border border-slate-200 mb-4 gap-2">
         {onBack && (
-          <button 
-            onClick={onBack}
-            className="flex items-center justify-center p-2 text-slate-500 hover:bg-slate-50 rounded-xl transition-colors shrink-0"
-            title="대시보드로 돌아가기"
-          >
+          <button onClick={onBack} className="flex items-center justify-center p-2 text-slate-500 hover:bg-slate-50 rounded-xl transition-colors shrink-0" title="대시보드로 돌아가기">
             <ArrowLeft size={18} />
           </button>
         )}
@@ -329,10 +375,7 @@ ${payload.type === 'text'
           <button className="flex-1 py-1.5 text-[11px] sm:text-xs font-bold rounded-lg transition-all bg-white shadow text-emerald-700 pointer-events-none">
             일반 과목
           </button>
-          <button 
-            onClick={() => onNavigate && onNavigate('learning_biblical')}
-            className="flex-1 py-1.5 text-[11px] sm:text-xs font-bold rounded-lg transition-all text-slate-500 hover:bg-slate-200/50"
-          >
+          <button onClick={() => onNavigate && onNavigate('learning_biblical')} className="flex-1 py-1.5 text-[11px] sm:text-xs font-bold rounded-lg transition-all text-slate-500 hover:bg-slate-200/50">
             성서 원어
           </button>
         </div>
@@ -355,7 +398,6 @@ ${payload.type === 'text'
          </button>
       </div>
 
-      {/* 🚀 registeredCourses 속성 전달 */}
       {generalTab === 'upload' && <GeneralUploadTab onUpload={handleGeneralUpload} registeredCourses={registeredCourses} />}
       
       {generalTab === 'study' && (
@@ -364,7 +406,7 @@ ${payload.type === 'text'
             <RefreshCw className="animate-spin text-emerald-500 mb-4" size={40} />
             <h3 className="text-sm md:text-base font-extrabold text-slate-800 mb-2">AI가 학습 데이터를 분석하고 있습니다</h3>
             <p className="text-xs md:text-sm text-slate-500 mb-6 text-center leading-relaxed">
-              복수 문제를 분리하고, 필요한 답안을 자동 작성하며<br className="hidden md:block"/>단락별 뼈대 구조화를 진행 중입니다.
+              요청하신 형식에 맞추어 문제와 답안을<br className="hidden md:block"/>자동으로 분류 및 구조화 진행 중입니다.
             </p>
             <div className="w-40 h-1.5 bg-slate-100 rounded-full overflow-hidden">
               <div className="h-full bg-emerald-400 w-1/2 rounded-full animate-[ping_1.5s_cubic-bezier(0,0,0.2,1)_infinite] origin-left"></div>
@@ -374,7 +416,7 @@ ${payload.type === 'text'
           <GeneralStudyTab 
             dataList={generalData} 
             quizList={quizData}
-            registeredCourses={registeredCourses} // 🚀 드롭다운 검색 필터용 데이터 전달
+            registeredCourses={registeredCourses} 
             onUpdateData={handleUpdateData}
             onDeleteData={handleDeleteData}
             onBulkDelete={handleBulkDeleteData} 
@@ -393,22 +435,21 @@ ${payload.type === 'text'
       )}
 
       {showTopBtn && (
-        <button 
-          onClick={scrollToTop}
-          className="fixed bottom-24 right-5 bg-indigo-500 hover:bg-indigo-600 text-white p-3 rounded-full shadow-xl transition-all z-50 animate-in fade-in slide-in-from-bottom-5 hover:-translate-y-1"
-          aria-label="위로 가기"
-        >
+        <button onClick={scrollToTop} className="fixed bottom-24 right-5 bg-indigo-500 hover:bg-indigo-600 text-white p-3 rounded-full shadow-xl transition-all z-50 animate-in fade-in slide-in-from-bottom-5 hover:-translate-y-1" aria-label="위로 가기">
           <ChevronUp size={24} strokeWidth={3} />
         </button>
       )}
     </div>
   );
 }
-
+// 🚀 업로드 탭: 서술형 vs 객관식 선택 UI 추가
 function GeneralUploadTab({ onUpload, registeredCourses }) {
   const [isDragging, setIsDragging] = useState(false);
   const [isParsing, setIsParsing] = useState(false);
   
+  // 🚀 공통: 학습 목표(문제 유형) 선택 State 추가
+  const [questionType, setQuestionType] = useState('essay');
+
   const [selectedCourse, setSelectedCourse] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('강의/과제');
   const [question, setQuestion] = useState('');
@@ -429,7 +470,7 @@ function GeneralUploadTab({ onUpload, registeredCourses }) {
     setIsParsing(true);
     setTimeout(() => { 
       setIsParsing(false); 
-      onUpload({ type: 'text', subject: `${selectedCourse} / ${selectedCategory}`, question, answer }); 
+      onUpload({ type: 'text', subject: `${selectedCourse} / ${selectedCategory}`, question, answer, questionType }); 
     }, 100);
   };
 
@@ -439,7 +480,7 @@ function GeneralUploadTab({ onUpload, registeredCourses }) {
     const reader = new FileReader();
     reader.onload = (event) => {
       setIsParsing(false);
-      onUpload({ type: 'file', subject: `${fileCourse} / ${fileCategory}`, fileContent: event.target.result });
+      onUpload({ type: 'file', subject: `${fileCourse} / ${fileCategory}`, fileContent: event.target.result, questionType });
     };
     reader.onerror = () => {
       setIsParsing(false);
@@ -449,8 +490,7 @@ function GeneralUploadTab({ onUpload, registeredCourses }) {
   };
 
   const handleFileDrop = (e) => {
-    e.preventDefault();
-    setIsDragging(false);
+    e.preventDefault(); setIsDragging(false);
     const file = e.dataTransfer.files[0];
     if (file) processFile(file);
   };
@@ -463,8 +503,24 @@ function GeneralUploadTab({ onUpload, registeredCourses }) {
   return (
     <div className="max-w-4xl mx-auto space-y-3 animate-in fade-in duration-300">
       <div className="bg-emerald-900 text-white p-4 rounded-3xl shadow-md">
-         <h2 className="text-sm font-bold mb-1 flex items-center gap-1.5"><Brain size={15} className="text-emerald-400" /> 일반 과목 AI 논술 분석기</h2>
-         <p className="text-emerald-100 text-xs leading-relaxed max-w-lg">문제(다수 가능)가 포함된 텍스트 파일을 통째로 넣어도 AI가 문항별로 분리하고 답안을 작성하여 구조화합니다.</p>
+         <h2 className="text-sm font-bold mb-2 flex items-center gap-1.5"><Brain size={15} className="text-emerald-400" /> 일반 과목 AI 논술/퀴즈 생성기</h2>
+         <p className="text-emerald-100 text-xs leading-relaxed max-w-lg mb-3">서술형 뼈대 구조화 또는 객관식/단답형 퀴즈 중 원하는 학습 모드를 선택하여 생성할 수 있습니다.</p>
+         
+         {/* 🚀 학습 형태(Question Type) 선택 라디오 버튼 */}
+         <div className="flex bg-emerald-800 p-1 rounded-xl w-fit">
+           <button 
+             onClick={() => setQuestionType('essay')} 
+             className={`px-4 py-2 text-[11px] sm:text-xs font-bold rounded-lg transition-all flex items-center gap-1.5 ${questionType === 'essay' ? 'bg-white text-emerald-900 shadow-sm' : 'text-emerald-100 hover:bg-emerald-700/50'}`}
+           >
+             <PenTool size={13}/> 서술형·논술형 뼈대 분석
+           </button>
+           <button 
+             onClick={() => setQuestionType('quiz')} 
+             className={`px-4 py-2 text-[11px] sm:text-xs font-bold rounded-lg transition-all flex items-center gap-1.5 ${questionType === 'quiz' ? 'bg-white text-emerald-900 shadow-sm' : 'text-emerald-100 hover:bg-emerald-700/50'}`}
+           >
+             <CheckSquare size={13}/> 객관식·단답형 문제 자동 생성
+           </button>
+         </div>
       </div>
       
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
@@ -489,15 +545,15 @@ function GeneralUploadTab({ onUpload, registeredCourses }) {
              </div>
            </div>
 
-           <div className="mt-1"><label className="block text-[11px] font-bold text-slate-700 mb-1">문제 (필수)</label><textarea rows={2} placeholder="출제될 문제를 입력하세요." className="w-full p-2 text-xs border border-slate-200 rounded-xl outline-none resize-none focus:border-emerald-500" value={question} onChange={e => setQuestion(e.target.value)} /></div>
-           <div className="flex-1 flex flex-col"><label className="block text-[11px] font-bold text-slate-700 mb-1">모범 답안 (선택)</label><textarea rows={3} placeholder="비워두시면 AI가 모범답안을 스스로 작성합니다." className="w-full p-2 text-xs border border-slate-200 rounded-xl outline-none resize-none flex-1 focus:border-emerald-500" value={answer} onChange={e => setAnswer(e.target.value)} /></div>
+           <div className="mt-1"><label className="block text-[11px] font-bold text-slate-700 mb-1">{questionType === 'essay' ? '문제 (필수)' : '학습 주제 (필수)'}</label><textarea rows={2} placeholder={questionType === 'essay' ? "출제될 문제를 입력하세요." : "퀴즈로 만들 학습 주제를 간단히 입력하세요."} className="w-full p-2 text-xs border border-slate-200 rounded-xl outline-none resize-none focus:border-emerald-500" value={question} onChange={e => setQuestion(e.target.value)} /></div>
+           <div className="flex-1 flex flex-col"><label className="block text-[11px] font-bold text-slate-700 mb-1">{questionType === 'essay' ? '모범 답안 (선택)' : '관련 내용 (선택)'}</label><textarea rows={3} placeholder={questionType === 'essay' ? "비워두시면 AI가 모범답안을 스스로 작성합니다." : "이 내용을 바탕으로 AI가 객관식/단답형 문제를 만듭니다."} className="w-full p-2 text-xs border border-slate-200 rounded-xl outline-none resize-none flex-1 focus:border-emerald-500" value={answer} onChange={e => setAnswer(e.target.value)} /></div>
            <button onClick={handleTextSubmit} disabled={isParsing || !selectedCourse || !question} className="w-full py-2 bg-slate-800 hover:bg-slate-900 text-white text-xs font-bold rounded-xl transition-transform active:scale-95 disabled:opacity-70 mt-1">
-              {isParsing ? '준비 중...' : '입력 내용 AI 분석 시작'}
+              {isParsing ? '준비 중...' : `${questionType === 'essay' ? '서술형' : '퀴즈'} 데이터 생성 시작`}
            </button>
         </div>
 
         <div className="bg-emerald-50 p-4 rounded-3xl shadow-sm border-2 border-emerald-200 flex flex-col relative">
-           <div className="mb-2 flex items-center gap-1.5"><UploadCloud className="text-emerald-600" size={13}/><h3 className="text-xs font-bold text-emerald-900">파일 첨부 / 다중 문제 인식</h3></div>
+           <div className="mb-2 flex items-center gap-1.5"><UploadCloud className="text-emerald-600" size={13}/><h3 className="text-xs font-bold text-emerald-900">파일 첨부 스캔</h3></div>
            
            <div className="grid grid-cols-2 gap-2 mb-2">
              <div>
@@ -519,19 +575,13 @@ function GeneralUploadTab({ onUpload, registeredCourses }) {
            
            <input type="file" id="file-upload" className="hidden" accept=".txt,.md,.csv" onChange={handleFileInputChange} />
            
-           <label 
-             htmlFor="file-upload"
-             onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
-             onDragLeave={(e) => { e.preventDefault(); setIsDragging(false); }}
-             onDrop={handleFileDrop}
-             className={`border-2 border-dashed rounded-3xl flex-1 flex flex-col items-center justify-center p-5 text-center transition-all cursor-pointer ${isDragging ? 'border-emerald-500 bg-emerald-100' : 'border-emerald-300 bg-white/60 hover:bg-white'}`}
-           >
+           <label htmlFor="file-upload" onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }} onDragLeave={(e) => { e.preventDefault(); setIsDragging(false); }} onDrop={handleFileDrop} className={`border-2 border-dashed rounded-3xl flex-1 flex flex-col items-center justify-center p-5 text-center transition-all cursor-pointer ${isDragging ? 'border-emerald-500 bg-emerald-100' : 'border-emerald-300 bg-white/60 hover:bg-white'}`}>
              {isParsing ? (
                <div className="flex flex-col items-center"><RefreshCw className="animate-spin text-emerald-600 mb-1.5" size={26} /><p className="text-emerald-900 font-bold text-xs">문서를 읽는 중...</p></div>
              ) : (
                <div>
                  <FileText className="text-emerald-400 mx-auto mb-2" size={32} />
-                 <p className="font-bold text-emerald-900 text-xs mb-1.5">다중 문제 텍스트 파일 드래그</p>
+                 <p className="font-bold text-emerald-900 text-xs mb-1.5">문서/텍스트 파일 드래그</p>
                  <span className="text-[11px] text-emerald-600 bg-emerald-100 px-3 py-1.5 rounded-full border border-emerald-200 inline-block font-bold">클릭하여 파일 찾기 (.txt)</span>
                </div>
              )}
@@ -547,7 +597,6 @@ function GeneralStudyTab({ dataList, quizList, registeredCourses, onUpdateData, 
   const [studyMode, setStudyMode] = useState('essay'); 
   const [searchQuery, setSearchQuery] = useState(''); 
   
-  // 🚀 목록 필터링용 드롭다운 State
   const [selectedCourseFilter, setSelectedCourseFilter] = useState('all');
   const [selectedItems, setSelectedItems] = useState(new Set());
 
@@ -565,13 +614,10 @@ function GeneralStudyTab({ dataList, quizList, registeredCourses, onUpdateData, 
 
   const currentList = studyMode === 'essay' ? dataList : quizList;
   
-  // 🚀 검색어 및 콤보박스(과목명) 조건 동시 필터링
   const filteredList = currentList.filter(item => {
     const textMatch = (item.subject && item.subject.toLowerCase().includes(searchQuery.toLowerCase())) ||
                       (item.question && item.question.toLowerCase().includes(searchQuery.toLowerCase()));
-                      
     const courseMatch = selectedCourseFilter === 'all' || (item.subject && item.subject.startsWith(selectedCourseFilter));
-    
     return textMatch && courseMatch;
   });
 
@@ -589,11 +635,8 @@ function GeneralStudyTab({ dataList, quizList, registeredCourses, onUpdateData, 
   };
 
   const toggleSelectAll = () => {
-    if (selectedItems.size === filteredList.length) {
-      setSelectedItems(new Set());
-    } else {
-      setSelectedItems(new Set(filteredList.map(s => s.id)));
-    }
+    if (selectedItems.size === filteredList.length) setSelectedItems(new Set());
+    else setSelectedItems(new Set(filteredList.map(s => s.id)));
   };
 
   if (!selectedId) {
@@ -605,52 +648,25 @@ function GeneralStudyTab({ dataList, quizList, registeredCourses, onUpdateData, 
            <button onClick={() => setStudyMode('quiz')} className={`flex-1 sm:flex-none px-6 py-2 text-xs font-bold rounded-xl transition-all ${studyMode === 'quiz' ? 'bg-white shadow text-indigo-700' : 'text-slate-500'}`}><CheckSquare size={13} className="inline mr-1"/> 객관식/단답형</button>
         </div>
         
-        {/* 🚀 드롭다운 + 텍스트 검색바 통합 레이아웃 */}
         <div className="flex flex-col sm:flex-row gap-2 mb-4 w-full">
-          <select
-            value={selectedCourseFilter}
-            onChange={(e) => setSelectedCourseFilter(e.target.value)}
-            className="bg-white border border-slate-200 focus:border-emerald-500 rounded-2xl px-4 py-3 text-sm font-bold outline-none shadow-sm sm:w-1/3 text-slate-700"
-          >
+          <select value={selectedCourseFilter} onChange={(e) => setSelectedCourseFilter(e.target.value)} className="bg-white border border-slate-200 focus:border-emerald-500 rounded-2xl px-4 py-3 text-sm font-bold outline-none shadow-sm sm:w-1/3 text-slate-700">
             <option value="all">전체 과목 보기</option>
             {registeredCourses && registeredCourses.map(c => <option key={c} value={c}>{c}</option>)}
           </select>
-
           <div className="relative flex-1">
-            <input 
-              type="text" 
-              placeholder="과목명 또는 문제 내용으로 검색..." 
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full bg-white border border-slate-200 focus:border-emerald-500 rounded-2xl px-10 py-3 text-sm font-bold outline-none shadow-sm transition-colors"
-            />
+            <input type="text" placeholder="과목명 또는 문제 내용으로 검색..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="w-full bg-white border border-slate-200 focus:border-emerald-500 rounded-2xl px-10 py-3 text-sm font-bold outline-none shadow-sm transition-colors" />
             <Search size={18} className="absolute left-3.5 top-3.5 text-slate-400" />
-            {searchQuery && (
-              <button onClick={() => setSearchQuery('')} className="absolute right-3.5 top-3.5 text-slate-400 hover:text-slate-600">
-                <X size={16} />
-              </button>
-            )}
+            {searchQuery && <button onClick={() => setSearchQuery('')} className="absolute right-3.5 top-3.5 text-slate-400 hover:text-slate-600"><X size={16} /></button>}
           </div>
         </div>
 
         <div className="flex justify-between items-center bg-white p-3 rounded-2xl shadow-sm border border-slate-200 mb-2">
           <label className="flex items-center gap-2 cursor-pointer text-xs font-bold text-slate-600 hover:text-slate-800 transition-colors pl-1">
-            <input 
-              type="checkbox" 
-              checked={filteredList.length > 0 && selectedItems.size === filteredList.length} 
-              onChange={toggleSelectAll} 
-              className={`w-4 h-4 rounded border-slate-300 focus:ring-${studyMode === 'essay' ? 'emerald' : 'indigo'}-500 text-${studyMode === 'essay' ? 'emerald' : 'indigo'}-600`} 
-            />
+            <input type="checkbox" checked={filteredList.length > 0 && selectedItems.size === filteredList.length} onChange={toggleSelectAll} className={`w-4 h-4 rounded border-slate-300 focus:ring-${studyMode === 'essay' ? 'emerald' : 'indigo'}-500 text-${studyMode === 'essay' ? 'emerald' : 'indigo'}-600`} />
             전체 선택
           </label>
           {selectedItems.size > 0 && (
-            <button 
-              onClick={() => {
-                onBulkDelete(Array.from(selectedItems), studyMode);
-                setSelectedItems(new Set());
-              }} 
-              className="bg-rose-50 text-rose-600 hover:bg-rose-100 hover:text-rose-700 px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-colors"
-            >
+            <button onClick={() => { onBulkDelete(Array.from(selectedItems), studyMode); setSelectedItems(new Set()); }} className="bg-rose-50 text-rose-600 hover:bg-rose-100 px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-colors">
               <Trash2 size={13} /> 선택 삭제 ({selectedItems.size})
             </button>
           )}
@@ -666,25 +682,18 @@ function GeneralStudyTab({ dataList, quizList, registeredCourses, onUpdateData, 
               </h3>
               <div className={`p-3 rounded-b-2xl rounded-tr-2xl border space-y-2 ${studyMode === 'essay' ? 'bg-emerald-50/20 border-emerald-100' : 'bg-indigo-50/20 border-indigo-100'}`}>
                 {items.map(item => (
-                  <div key={item.id} className={`bg-white p-3 rounded-xl shadow-sm transition-all group flex items-start justify-between gap-3 hover:border-emerald-400 border ${selectedItems.has(item.id) ? (studyMode === 'essay' ? 'border-emerald-300 bg-emerald-50/10' : 'border-indigo-300 bg-indigo-50/10') : 'border-slate-200'}`}>
+                  <div key={item.id} className={`bg-white p-3 rounded-xl shadow-sm transition-all group flex items-start justify-between gap-3 hover:border-${studyMode === 'essay' ? 'emerald' : 'indigo'}-400 border ${selectedItems.has(item.id) ? (studyMode === 'essay' ? 'border-emerald-300 bg-emerald-50/10' : 'border-indigo-300 bg-indigo-50/10') : 'border-slate-200'}`}>
                     <div className="flex-1 flex items-start gap-2.5 min-w-0 py-1">
-                      <input 
-                        type="checkbox" 
-                        checked={selectedItems.has(item.id)} 
-                        onChange={() => toggleItemSelect(item.id)} 
-                        className={`w-4 h-4 rounded border-slate-300 cursor-pointer mt-0.5 focus:ring-${studyMode === 'essay' ? 'emerald' : 'indigo'}-500 text-${studyMode === 'essay' ? 'emerald' : 'indigo'}-600`}
-                      />
+                      <input type="checkbox" checked={selectedItems.has(item.id)} onChange={() => toggleItemSelect(item.id)} className={`w-4 h-4 rounded border-slate-300 cursor-pointer mt-0.5 focus:ring-${studyMode === 'essay' ? 'emerald' : 'indigo'}-500 text-${studyMode === 'essay' ? 'emerald' : 'indigo'}-600`} />
                       {studyMode === 'quiz' && <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md shrink-0 mt-0.5 ${item.type === 'multiple' ? 'bg-indigo-100 text-indigo-700' : 'bg-amber-100 text-amber-700'}`}>{item.type === 'multiple' ? '객관식' : '단답형'}</span>}
                       
-                      <h4 onClick={() => setSelectedId(item.id)} className="cursor-pointer text-[13px] font-bold text-slate-800 group-hover:text-emerald-700 transition-colors leading-relaxed break-keep whitespace-normal">
+                      <h4 onClick={() => setSelectedId(item.id)} className={`cursor-pointer text-[13px] font-bold text-slate-800 group-hover:text-${studyMode === 'essay' ? 'emerald' : 'indigo'}-700 transition-colors leading-relaxed break-keep whitespace-normal`}>
                         {item.question}
                       </h4>
                     </div>
                     <div className="flex items-center gap-1 shrink-0 mt-0.5">
-                      <button onClick={() => setSelectedId(item.id)} className="text-[11px] font-bold text-slate-400 group-hover:text-emerald-600 flex items-center bg-slate-50 group-hover:bg-emerald-50 px-2 py-1.5 rounded-lg transition-colors">학습 <ChevronRight size={12} /></button>
-                      <button onClick={(e) => { e.stopPropagation(); onDeleteData(item.id, studyMode); }} className="p-1.5 text-gray-300 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-colors" title="문제 삭제">
-                        <Trash2 size={14} />
-                      </button>
+                      <button onClick={() => setSelectedId(item.id)} className={`text-[11px] font-bold text-slate-400 group-hover:text-${studyMode === 'essay' ? 'emerald' : 'indigo'}-600 flex items-center bg-slate-50 group-hover:bg-${studyMode === 'essay' ? 'emerald' : 'indigo'}-50 px-2 py-1.5 rounded-lg transition-colors`}>학습 <ChevronRight size={12} /></button>
+                      <button onClick={(e) => { e.stopPropagation(); onDeleteData(item.id, studyMode); }} className="p-1.5 text-gray-300 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-colors" title="문제 삭제"><Trash2 size={14} /></button>
                     </div>
                   </div>
                 ))}
@@ -704,7 +713,6 @@ function GeneralStudyTab({ dataList, quizList, registeredCourses, onUpdateData, 
     return <QuizDetailView data={data} onBack={() => setSelectedId(null)} onFail={onFail} onSuccess={onSuccess} />;
   }
 }
-
 function QuizDetailView({ data, onBack, onFail, onSuccess }) {
   const [selectedOption, setSelectedOption] = useState(null);
   const [shortAnswerInput, setShortAnswerInput] = useState('');
@@ -862,17 +870,11 @@ function GeneralStudyDetail({ data, onBack, onUpdateData, onDeleteData }) {
       if (selectedText) {
         const keywordKey = `${sectionKey}Keywords`;
         const contentKey = `${sectionKey}Content`;
-        
         let currentKeywords = editData[keywordKey].split(',').map(k => k.trim()).filter(k => k);
-        
         if (!currentKeywords.includes(selectedText)) {
           const updatedKeywords = [...currentKeywords, selectedText];
           const sortedKeywords = sortKeywordsByText(updatedKeywords, editData[contentKey]);
-          
-          setEditData(prev => ({
-            ...prev,
-            [keywordKey]: sortedKeywords.join(', ')
-          }));
+          setEditData(prev => ({ ...prev, [keywordKey]: sortedKeywords.join(', ') }));
         }
       }
     }
@@ -882,38 +884,20 @@ function GeneralStudyDetail({ data, onBack, onUpdateData, onDeleteData }) {
     if (isEditing && editData) {
       const contentKey = `${sectionKey}Content`;
       const keywordKey = `${sectionKey}Keywords`;
-      
       const currentText = editData[contentKey];
       const currentKeywords = editData[keywordKey].split(',').map(k => k.trim()).filter(k => k);
       
       return (
          <div className="bg-emerald-50/50 p-4 rounded-2xl border-2 border-emerald-300 shadow-sm mb-3">
              <span className="bg-emerald-100 text-emerald-800 text-[11px] font-extrabold px-2.5 py-0.5 rounded-lg mb-2 inline-block">{section.title}</span>
-             
-             <textarea 
-               value={currentText} 
-               onChange={(e) => setEditData({...editData, [contentKey]: e.target.value})} 
-               onMouseUp={(e) => handleTextSelection(e, sectionKey)}
-               onTouchEnd={(e) => handleTextSelection(e, sectionKey)}
-               className="w-full text-xs text-slate-700 mb-3 p-3 border border-emerald-200 focus:border-emerald-500 outline-none rounded-xl bg-white" 
-               rows={4} 
-               placeholder="본문 내용을 수정하세요. 마우스로 단어를 드래그하여 선택하면 추출 키워드로 자동 등록됩니다." 
-             />
-             
-             <div className="mb-1 text-[11px] font-bold text-emerald-700 flex items-center gap-1">
-                <Lightbulb size={12}/> 추출 키워드 편집 <span className="text-slate-400 font-medium">(드래그 시 자동 추가)</span>
-             </div>
+             <textarea value={currentText} onChange={(e) => setEditData({...editData, [contentKey]: e.target.value})} onMouseUp={(e) => handleTextSelection(e, sectionKey)} onTouchEnd={(e) => handleTextSelection(e, sectionKey)} className="w-full text-xs text-slate-700 mb-3 p-3 border border-emerald-200 focus:border-emerald-500 outline-none rounded-xl bg-white" rows={4} placeholder="본문 내용을 수정하세요. 마우스로 단어를 드래그하여 선택하면 추출 키워드로 자동 등록됩니다." />
+             <div className="mb-1 text-[11px] font-bold text-emerald-700 flex items-center gap-1"><Lightbulb size={12}/> 추출 키워드 편집 <span className="text-slate-400 font-medium">(드래그 시 자동 추가)</span></div>
              <input type="text" value={editData[keywordKey]} onChange={(e) => setEditData({...editData, [keywordKey]: e.target.value})} className="w-full bg-white border border-emerald-200 focus:border-emerald-500 outline-none text-xs p-2.5 rounded-xl mb-2" placeholder="쉼표로 구분 (예: 타낙, 구약성서)" />
-             
              {currentKeywords.length > 0 && (
                <div className="flex flex-wrap gap-1 mt-2 p-2 bg-white rounded-xl border border-emerald-100">
                  {currentKeywords.map((kw, i) => {
                    const isFound = currentText.includes(kw);
-                   return (
-                     <span key={i} className={`text-[10px] font-bold px-2 py-1 rounded-md border ${isFound ? 'bg-emerald-100 text-emerald-800 border-emerald-200' : 'bg-rose-50 text-rose-500 border-rose-200 line-through'}`}>
-                       {kw} {isFound ? '✓' : '(없음)'}
-                     </span>
-                   )
+                   return <span key={i} className={`text-[10px] font-bold px-2 py-1 rounded-md border ${isFound ? 'bg-emerald-100 text-emerald-800 border-emerald-200' : 'bg-rose-50 text-rose-500 border-rose-200 line-through'}`}>{kw} {isFound ? '✓' : '(없음)'}</span>;
                  })}
                </div>
              )}
@@ -923,9 +907,7 @@ function GeneralStudyDetail({ data, onBack, onUpdateData, onDeleteData }) {
     return (
        <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm mb-3">
            <span className="bg-emerald-100 text-emerald-800 text-[11px] font-extrabold px-2.5 py-0.5 rounded-lg mb-2 inline-block">{section.title}</span>
-           <div className="text-[13px] sm:text-sm text-slate-700 mb-4 leading-loose break-keep whitespace-pre-wrap">
-             {highlightText(section.content, section.keywords)}
-           </div>
+           <div className="text-[13px] sm:text-sm text-slate-700 mb-4 leading-loose break-keep whitespace-pre-wrap">{highlightText(section.content, section.keywords)}</div>
            <div className="flex flex-wrap gap-1.5 items-center bg-slate-50 p-2 rounded-2xl border border-slate-100">
               <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">추출 키워드:</span>
               {(section.keywords || []).map((kw, i) => <span key={i} className="bg-white border border-slate-200 text-[10px] font-bold px-2 py-0.5 rounded-md shadow-sm text-emerald-700">{kw}</span>)}
@@ -940,9 +922,7 @@ function GeneralStudyDetail({ data, onBack, onUpdateData, onDeleteData }) {
       data.blanks.forEach((_, i) => allSolved.add(i));
     } else if (data.blanks) {
       ['intro', 'body', 'conclusion'].forEach(sec => {
-        if (data.blanks[sec]) {
-          data.blanks[sec].forEach((_, i) => allSolved.add(`${sec}_${i}`));
-        }
+        if (data.blanks[sec]) data.blanks[sec].forEach((_, i) => allSolved.add(`${sec}_${i}`));
       });
     }
     setSolvedBlanks(allSolved);
@@ -951,9 +931,7 @@ function GeneralStudyDetail({ data, onBack, onUpdateData, onDeleteData }) {
   return (
     <div className="max-w-3xl mx-auto space-y-3 animate-in fade-in duration-300">
       <div className="flex justify-between items-center bg-white p-2 rounded-xl shadow-sm border border-slate-200 mb-2">
-        <button onClick={onBack} className="flex items-center gap-1.5 text-slate-500 hover:text-slate-800 hover:bg-slate-50 font-bold px-3 py-1.5 rounded-lg transition-colors text-xs">
-          <ArrowLeft size={14} /> 목록
-        </button>
+        <button onClick={onBack} className="flex items-center gap-1.5 text-slate-500 hover:text-slate-800 hover:bg-slate-50 font-bold px-3 py-1.5 rounded-lg transition-colors text-xs"><ArrowLeft size={14} /> 목록</button>
         <div className="flex items-center gap-1">
           {!isEditing ? (
             <>
@@ -968,11 +946,7 @@ function GeneralStudyDetail({ data, onBack, onUpdateData, onDeleteData }) {
 
       <div className="bg-slate-800 text-white p-4 rounded-2xl shadow-sm border-l-4 border-l-emerald-500">
         <span className="text-emerald-400 font-bold text-[10px] uppercase mb-1 block">{data.subject}</span>
-        {isEditing ? (
-          <textarea value={editData.question} onChange={(e) => setEditData({...editData, question: e.target.value})} className="w-full text-[13px] font-bold bg-slate-700 text-white p-2.5 rounded-xl border border-slate-600 focus:border-emerald-500 outline-none" rows={2} />
-        ) : (
-          <h3 className="text-[13px] sm:text-sm font-bold leading-relaxed">{data.question}</h3>
-        )}
+        {isEditing ? <textarea value={editData.question} onChange={(e) => setEditData({...editData, question: e.target.value})} className="w-full text-[13px] font-bold bg-slate-700 text-white p-2.5 rounded-xl border border-slate-600 focus:border-emerald-500 outline-none" rows={2} /> : <h3 className="text-[13px] sm:text-sm font-bold leading-relaxed">{data.question}</h3>}
       </div>
 
       <div className="flex bg-slate-100 p-1.5 rounded-2xl border border-slate-200">
