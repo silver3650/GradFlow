@@ -1,24 +1,24 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from './supabaseClient';
-import { LayoutDashboard, BookOpen, Calendar, User, GraduationCap, Bell, Brain } from 'lucide-react';
+import { LayoutDashboard, BookOpen, Calendar, User, GraduationCap, Bell, Brain, MessageCircle } from 'lucide-react';
 
 import Dashboard from './pages/Dashboard';
 import Coursework from './pages/Coursework';
 import CalendarView from './pages/CalendarView';
 import Profile from './pages/Profile';
 import AuthScreen from './pages/AuthScreen';
-import AdminDashboard from './pages/AdminDashboard'; // 관리자 컴포넌트 추가
+import AdminDashboard from './pages/AdminDashboard'; 
 
-// 🚀 분리된 학습 코칭 컴포넌트들 불러오기
-import DashboardHome from './components/learning/LearningDashboard'; // 대시보드 홈 (기존 내용 유지)
+import DashboardHome from './components/learning/LearningDashboard'; 
 import GeneralStudy from './components/learning/GeneralStudy';
 import BiblicalStudy from './components/learning/BiblicalStudy';
+
+import CommunicationModal from './components/modals/CommunicationModal'; 
 
 export default function App() {
   const [session, setSession] = useState(null);
   const [isAuthLoading, setIsAuthLoading] = useState(true);
   
-  // 🚀 모든 탭과 하위 뷰를 하나의 상태(activeTab)로 통일하여 관리합니다.
   const [activeTab, setActiveTab] = useState('dashboard'); 
   
   const [courses, setCourses] = useState([]);
@@ -29,6 +29,9 @@ export default function App() {
   const [providerToken, setProviderToken] = useState(localStorage.getItem('google_provider_token') || null);
   
   const mainContentRef = useRef(null);
+
+  const [showCommModal, setShowCommModal] = useState(false);
+  const [hasNewComm, setHasNewComm] = useState(false); 
 
   const showAlert = (msg) => {
     setToast(msg);
@@ -81,10 +84,39 @@ export default function App() {
   };
 
   useEffect(() => {
-    if (session) fetchAllData();
+    if (session) {
+      fetchAllData();
+      checkNewCommunications(); 
+    }
   }, [session]);
 
-  // 학습코칭 탭 버튼을 눌렀을 때 항상 대시보드 홈으로 가도록 설정
+  const checkNewCommunications = async () => {
+    if (!session?.user) return;
+    try {
+      const sevenDaysAgo = new Date();
+      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+      
+      const { data: notices } = await supabase
+        .from('announcements')
+        .select('id')
+        .gte('created_at', sevenDaysAgo.toISOString())
+        .limit(1);
+
+      const { data: inquiries } = await supabase
+        .from('inquiries')
+        .select('id')
+        .eq('user_id', session.user.id)
+        .eq('status', 'answered')
+        .limit(1);
+
+      if ((notices && notices.length > 0) || (inquiries && inquiries.length > 0)) {
+        setHasNewComm(true);
+      }
+    } catch (error) {
+      console.error("알림 체크 실패:", error);
+    }
+  };
+
   const handleNavClick = (id) => {
     if (id === 'learning') {
       setActiveTab('learning_dashboard');
@@ -104,7 +136,6 @@ export default function App() {
   if (isAuthLoading) return <div className="min-h-screen bg-slate-50 flex items-center justify-center font-black text-[#6366f1] animate-pulse">GradFlow 로딩 중...</div>;
   if (!session) return <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4"><AuthScreen showAlert={showAlert} /></div>;
 
-  // 학습코칭 하위 메뉴인지 판단
   const isLearningTab = activeTab.startsWith('learning');
 
   return (
@@ -136,31 +167,57 @@ export default function App() {
           <div className="bg-[#6366f1] p-1.5 rounded-lg shadow-md"><GraduationCap size={18} className="text-white" /></div>
           <span className="text-lg font-black tracking-tighter text-[#1a1f2c]">GradFlow</span>
         </div>
-        <button className="p-2 text-gray-400"><Bell size={20} /></button>
+        
+        <button 
+          onClick={() => {
+            setShowCommModal(true);
+            setHasNewComm(false); 
+          }} 
+          className="relative p-2 text-slate-400 hover:text-indigo-500 transition-colors"
+        >
+          <MessageCircle size={22} />
+          {hasNewComm && (
+             <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-rose-500 border-2 border-white rounded-full"></span>
+          )}
+        </button>
       </header>
+
+      {/* 🚀 데스크탑용 소통 라운지 버튼 (우측 상단 뷰포트 고정 배치로 겹침 완전 방지) */}
+      <div className="hidden md:block fixed top-6 right-8 z-[60]">
+        <button 
+          onClick={() => {
+            setShowCommModal(true);
+            setHasNewComm(false);
+          }} 
+          className="relative p-3 bg-white rounded-full shadow-md border border-slate-200 text-slate-400 hover:text-indigo-500 hover:shadow-lg hover:-translate-y-0.5 transition-all"
+          title="공지사항 및 1:1 문의"
+        >
+          <MessageCircle size={24} />
+          {hasNewComm && (
+             <span className="absolute top-1.5 right-1.5 w-3 h-3 bg-rose-500 border-[2px] border-white rounded-full"></span>
+          )}
+        </button>
+      </div>
 
       <main ref={mainContentRef} className="flex-1 overflow-y-auto p-4 md:p-12 pt-[72px] md:pt-12 pb-20 md:pb-12 scroll-smooth">
         <div className="max-w-5xl mx-auto w-full h-full relative">
-          
-          {/* 🚀 통합 라우팅 스위치 영역 */}
           {activeTab === 'dashboard' && <Dashboard courses={courses} coursework={coursework} setCoursework={setCoursework} userProfile={userProfile} setActiveTab={setActiveTab} providerToken={providerToken} />}
           {activeTab === 'coursework' && <Coursework courses={courses} setCourses={setCourses} coursework={coursework} setCoursework={setCoursework} showAlert={showAlert} />}
           {activeTab === 'calendar' && <CalendarView courses={courses} coursework={coursework} setCoursework={setCoursework} />}
           {activeTab === 'profile' && <Profile userProfile={userProfile} setUserProfile={setUserProfile} showAlert={showAlert} setActiveTab={setActiveTab} />}
           {activeTab === 'admin' && <AdminDashboard setActiveTab={setActiveTab} />}
 
-          {/* 학습 코칭 관련 뷰들 */}
           {activeTab === 'learning_dashboard' && <DashboardHome onNavigate={(target) => setActiveTab(`learning_${target}`)} />}
           {activeTab === 'learning_general' && (
             <GeneralStudy 
               onBack={() => setActiveTab('learning_dashboard')} 
-              onNavigate={setActiveTab} // 🚀 이 줄을 추가하세요!
+              onNavigate={setActiveTab}
             />
           )}
           {activeTab === 'learning_biblical' && (
             <BiblicalStudy 
               onBack={() => setActiveTab('learning_dashboard')} 
-              onNavigate={setActiveTab} // 🚀 이 줄을 추가하세요!
+              onNavigate={setActiveTab}
             />
           )}
         </div>
@@ -184,6 +241,8 @@ export default function App() {
       </nav>
 
       {toast && <div className="fixed top-[68px] md:top-6 left-1/2 -translate-x-1/2 z-[100] bg-gray-900/90 backdrop-blur-md text-white px-6 py-3 rounded-2xl shadow-2xl font-bold animate-in fade-in zoom-in duration-300">{toast}</div>}
+      
+      {showCommModal && <CommunicationModal onClose={() => setShowCommModal(false)} />}
     </div>
   );
 }

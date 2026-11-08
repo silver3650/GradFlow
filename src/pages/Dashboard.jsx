@@ -3,7 +3,7 @@ import { supabase } from '../supabaseClient';
 import { 
   Bell, ShieldCheck, ChevronRight, FileText, 
   Calendar as CalIcon, Settings, Clock, Loader2, Sparkles, X,
-  GraduationCap, Trash2
+  GraduationCap, Trash2, RefreshCw, Brain // 🚀 Brain 아이콘 추가
 } from 'lucide-react';
 import { fetchGoogleClassroomAssignments } from '../utils/classroomAPI';
 import { analyzeAssignmentWithAI } from '../utils/geminiAPI';
@@ -59,7 +59,6 @@ export default function Dashboard({ courses = [], coursework = [], setCoursework
       } else {
         if (!isAutoSync) {
           alert("현재 동기화할 새로운 클래스룸 과제가 없습니다.");
-          setTimeout(() => setActiveTab('coursework'), 500);
         }
       }
     } catch (error) {
@@ -67,6 +66,15 @@ export default function Dashboard({ courses = [], coursework = [], setCoursework
       if (!isAutoSync) alert("동기화 중 오류가 발생했습니다. 권한 설정을 확인해 주세요.");
     } finally {
       setIsSyncing(false);
+    }
+  };
+
+  const handleSyncRefresh = () => {
+    if (providerToken) {
+      handleClassroomSync(false);
+    } else {
+      alert("구글 계정 연동을 위해 설정 탭으로 이동합니다.");
+      setActiveTab('profile'); 
     }
   };
 
@@ -97,11 +105,10 @@ export default function Dashboard({ courses = [], coursework = [], setCoursework
   const calculateDDay = (date) => {
     if (!date) return '';
     const today = new Date();
-    today.setHours(0, 0, 0, 0); // 오늘 날짜의 자정 기준
+    today.setHours(0, 0, 0, 0); 
     const target = new Date(date);
-    target.setHours(0, 0, 0, 0); // 마감일 날짜의 자정 기준
+    target.setHours(0, 0, 0, 0); 
     
-    // 순수하게 날짜 차이만 계산
     const diff = Math.round((target - today) / 86400000);
     return diff > 0 ? `D-${diff}` : diff === 0 ? 'D-Day' : `D+${Math.abs(diff)}`;
   };
@@ -116,8 +123,9 @@ export default function Dashboard({ courses = [], coursework = [], setCoursework
   const quickActions = [
     { label: '과제 확인', onClick: () => setActiveTab('coursework'), icon: <FileText className="text-blue-500" /> },
     { label: '일정 확인', onClick: () => setActiveTab('calendar'), icon: <CalIcon className="text-indigo-500" /> },
-    { label: '구글 동기화', onClick: () => handleClassroomSync(false), icon: <GraduationCap className={isSyncing ? "text-emerald-500 animate-bounce" : "text-emerald-600"} /> },
-    { label: '설정 관리', onClick: () => setActiveTab('profile'), icon: <Settings className="text-orange-400" /> }
+    { label: '구글 동기화', onClick: () => handleSyncRefresh(), icon: <GraduationCap className={isSyncing ? "text-emerald-500 animate-bounce" : "text-emerald-600"} /> },
+    // 🚀 수정된 부분: 설정 관리 -> 학습 코칭으로 변경 및 연결
+    { label: '학습 코칭', onClick: () => setActiveTab('learning_dashboard'), icon: <Brain className="text-purple-500" /> }
   ];
 
   const handleAiSplit = async () => {
@@ -219,15 +227,25 @@ export default function Dashboard({ courses = [], coursework = [], setCoursework
         
         <div className="flex gap-2 w-full md:w-auto">
           <button 
-            onClick={handleAiSplit}
-            disabled={!hasNewClassroomTask || isAnalyzing}
-            className={`w-full md:w-auto px-5 py-2.5 rounded-xl font-black text-xs md:text-sm whitespace-nowrap shadow-sm transition-all active:scale-95 flex items-center justify-center gap-1.5
-              ${hasNewClassroomTask && !isAnalyzing ? 'bg-[#3b82f6] text-white hover:bg-blue-600' : 'bg-gray-200 text-gray-400 cursor-not-allowed'}
-            `}
+            onClick={handleSyncRefresh}
+            className={`flex-1 md:flex-none px-4 py-2.5 rounded-xl font-black text-xs md:text-sm whitespace-nowrap shadow-sm transition-all active:scale-95 flex items-center justify-center gap-1.5 ${providerToken ? 'bg-white text-blue-600 border border-blue-200 hover:bg-blue-50' : 'bg-slate-800 text-white hover:bg-slate-900'}`}
           >
-            {isAnalyzing ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />}
-            {hasNewClassroomTask ? 'AI로 쪼개기' : '완료됨'}
+            <RefreshCw size={16} className={isSyncing ? "animate-spin" : ""} />
+            {providerToken ? '새로고침' : '연동하기'}
           </button>
+
+          {providerToken && (
+            <button 
+              onClick={handleAiSplit}
+              disabled={!hasNewClassroomTask || isAnalyzing}
+              className={`flex-1 md:flex-none px-4 py-2.5 rounded-xl font-black text-xs md:text-sm whitespace-nowrap shadow-sm transition-all active:scale-95 flex items-center justify-center gap-1.5
+                ${hasNewClassroomTask && !isAnalyzing ? 'bg-[#3b82f6] text-white hover:bg-blue-600' : 'bg-gray-200 text-gray-400 cursor-not-allowed'}
+              `}
+            >
+              {isAnalyzing ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />}
+              {hasNewClassroomTask ? 'AI로 쪼개기' : '완료됨'}
+            </button>
+          )}
         </div>
       </div>
 
@@ -299,7 +317,6 @@ export default function Dashboard({ courses = [], coursework = [], setCoursework
                 >
                   <option value="">과목 선택 안 함 (미지정)</option>
                   
-                  {/* 🚀 수정된 부분: 'completed(이수)' 상태가 아닌 과목만 필터링하여 보여줌 */}
                   {courses
                     .filter(c => c.status !== 'completed') 
                     .map(c => (
